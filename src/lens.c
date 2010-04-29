@@ -622,6 +622,9 @@ ambig_check(struct info *info, struct fa *fa1, struct fa *fa2,
     struct value *exn = NULL;
     int r;
 
+    char *f1 = format_info(l1->info);
+    char *f2 = format_info(l2->info);
+    printf("ambig_check(%s <---> %s)\n", f1, f2);
     r = fa_ambig_example(fa1, fa2, &upv, &upv_len, &pv, &v);
     if (r < 0) {
         exn = make_exn_value(ref(info), "not enough memory");

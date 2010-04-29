@@ -2648,9 +2648,46 @@ int fa_example(struct fa *fa, char **example, size_t *example_len) {
  *
  * The returned automaton is a copy of FA, FA is not modified.
  */
+size_t fa_size(struct fa *f){
+	const int sz_fa = sizeof(struct fa);
+	const int sz_state = sizeof(struct state);
+	const int sz_trans = sizeof(struct trans);
+	size_t total = 0;
+	total += sz_fa;
+	list_for_each(s, f->initial){
+		total += sz_state;
+		for_each_trans(t, s){
+			total += sz_trans;
+		}
+	}
+	return total;
+}
+
+struct avg {
+	int total;
+	int nb;
+};
+
+struct avg *avg_before = NULL;
+struct avg *avg_after = NULL;
+
 static struct fa *expand_alphabet(struct fa *fa, int add_marker,
                                   char X, char Y) {
+	if (avg_after == NULL){
+		avg_before = malloc(sizeof(struct avg));
+		avg_after = malloc(sizeof(struct avg));
+		avg_before->total = 0;
+		avg_before->nb = 0;
+		avg_after->total = 0;
+		avg_after->nb = 0;
+	}
+
     int ret;
+    int size_before, size_after;
+    float inc;
+    size_before = fa_size(fa);
+    avg_before->total += size_before;
+    avg_before->nb++;
 
     fa = fa_clone(fa);
     if (fa == NULL)
@@ -2680,6 +2717,13 @@ static struct fa *expand_alphabet(struct fa *fa, int add_marker,
                 goto error;
         }
     }
+
+    size_after = fa_size(fa);
+    avg_after->total += size_after;
+    avg_after->nb++;
+    inc = (size_after - size_before) / (float)size_before * 100;
+    float avg_size = (avg_after->total - avg_before->total) / (float) avg_before->total * 100;
+    printf("before: %d after: %d inc: %2.0f avg: %2.0f\n", size_before, size_after, inc, avg_size);
     return fa;
  error:
     fa_free(fa);
@@ -2775,8 +2819,10 @@ int fa_ambig_example(struct fa *fa1, struct fa *fa2,
     if (v != NULL)
         *v = NULL;
 
-    if (is_splittable(fa1, fa2))
+    if (is_splittable(fa1, fa2)){
+    	printf("is_splittable\n");
         return 0;
+    }
 
 #define Xs "\001"
 #define Ys "\002"
