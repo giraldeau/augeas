@@ -1250,6 +1250,120 @@ static void print_grammar_top(struct jmt *jmt, struct lens *lens) {
     }
 }
 
+static void print_brics_lens_symbol(FILE *fp, struct jmt *jmt, struct lens *lens) {
+    ind_t l = lens_index(jmt, lens);
+    struct state *sA = lens_state(jmt, l);
+
+    if (sA == NULL)
+        fprintf(fp, "<L%p>", lens);
+    else
+        flens(fp, l);
+}
+
+static void print_brics_grammar(FILE *fp, struct jmt *jmt, struct lens *lens) {
+    ind_t l = lens_index(jmt, lens);
+    struct state *sA = lens_state(jmt, l);
+
+    if (sA == NULL || (lens->tag == L_REC && lens->rec_internal))
+        return;
+
+    print_brics_lens_symbol(fp, jmt, lens);
+    fprintf(fp, " : ");
+
+    if (! lens->recursive) {
+        /* Nullable regexps */
+        fprintf(fp, "<L%p>\n", lens);
+        return;
+    }
+
+    switch (lens->tag) {
+    case L_CONCAT:
+        print_brics_lens_symbol(fp, jmt, lens->children[0]);
+        for (int i=1; i < lens->nchildren; i++) {
+            fprintf(fp, " ");
+            print_brics_lens_symbol(fp, jmt, lens->children[i]);
+        }
+        fprintf(fp, "\n");
+        for (int i=0; i < lens->nchildren; i++)
+            print_brics_grammar(fp, jmt, lens->children[i]);
+        break;
+    case L_UNION:
+        print_brics_lens_symbol(fp, jmt, lens->children[0]);
+        for (int i=1; i < lens->nchildren; i++) {
+            fprintf(fp, " | ");
+            print_brics_lens_symbol(fp, jmt, lens->children[i]);
+        }
+        fprintf(fp, "\n");
+        for (int i=0; i < lens->nchildren; i++)
+            print_brics_grammar(fp, jmt, lens->children[i]);
+        break;
+    case L_SUBTREE:
+        print_brics_lens_symbol(fp, jmt, lens->child);
+        fprintf(fp, "\n");
+        print_brics_grammar(fp, jmt, lens->child);
+        break;
+    case L_STAR:
+        // iteration rule
+        print_brics_lens_symbol(fp, jmt, lens->child);
+        fprintf(fp, " ");
+        print_brics_lens_symbol(fp, jmt, lens);
+        fprintf(fp, "\n");
+        // epsilon rule
+        print_brics_lens_symbol(fp, jmt, lens);
+        fprintf(fp, " : \n");
+        print_brics_grammar(fp, jmt, lens->child);
+        break;
+    case L_MAYBE:
+        // one match rule
+        print_brics_lens_symbol(fp, jmt, lens->child);
+        fprintf(fp, "\n");
+        // epsilon rule
+        print_brics_lens_symbol(fp, jmt, lens);
+        fprintf(fp, " : \n");
+        print_brics_grammar(fp, jmt, lens->child);
+        break;
+    case L_REC:
+        print_brics_lens_symbol(fp, jmt, lens->body);
+        fprintf(fp, "\n");
+        print_brics_grammar(fp, jmt, lens->body);
+        break;
+    default:
+        BUG_ON(true, jmt, "Unexpected lens tag %d", lens->tag);
+        break;
+    }
+ error:
+    return;
+}
+
+static void print_brics_grammar_top(FILE *fp, struct jmt *jmt, struct lens *lens) {
+    fprintf(fp, "// grammar %s\n", format_lens(lens));
+
+    array_for_each(i, jmt->lenses){
+        struct lens *l = lens_of_jmt(jmt, i);
+        struct state *sA = lens_state(jmt, i);
+        if (sA == NULL){
+            fprintf(fp, "L%p = ", l);
+            print_regexp(fp, l->ctype);
+            fprintf(fp, " (MAX)\n");
+        }
+    }
+    fprintf(fp, "\n");
+    print_brics_grammar(fp, jmt, lens);
+    if (lens->tag == L_REC) {
+        print_lens_symbol(fp, jmt, lens->alias);
+        fprintf(fp, " : ");
+        print_lens_symbol(fp, jmt, lens->alias->body);
+        fprintf(fp, "\n");
+    }
+}
+
+static void dump_brics_grammar(struct jmt *jmt, struct lens *lens) {
+    FILE *fp = debug_fopen("brics_%p.cfg", lens);
+    if (fp == NULL)
+        return;
+    print_brics_grammar_top(fp, jmt, lens);
+}
+
 static void index_lenses(struct jmt *jmt, struct lens *lens) {
     ind_t l;
 
@@ -1854,6 +1968,12 @@ struct jmt *jmt_build(struct lens *lens) {
 
     if (debugging("cf.jmt"))
         print_grammar_top(jmt, lens);
+
+    if (debugging("cf.brics.stdout"))
+        print_brics_grammar_top(stdout, jmt, lens);
+
+    if (debugging("cf.brics.file"))
+            dump_brics_grammar(jmt, lens);
 
     for (ind_t i=0; i < jmt->lenses.used; i++) {
         conv_rhs(jmt, i);
