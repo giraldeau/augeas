@@ -91,13 +91,11 @@ char *regexp_escape(const struct regexp *r) {
     return pat;
 }
 
-void print_regexp(FILE *out, struct regexp *r) {
+void print_regexp_inner(FILE *out, struct regexp *r) {
     if (r == NULL) {
         fprintf(out, "<NULL>");
         return;
     }
-
-    fputc('/', out);
     if (r->pattern == NULL)
         fprintf(out, "%p", r);
     else {
@@ -108,6 +106,16 @@ void print_regexp(FILE *out, struct regexp *r) {
         print_chars(out, rx, rx_len);
         FREE(rx);
     }
+}
+
+void print_regexp(FILE *out, struct regexp *r) {
+    if (r == NULL) {
+        fprintf(out, "<NULL>");
+        return;
+    }
+
+    fputc('/', out);
+    print_regexp_inner(out, r);
     fputc('/', out);
     if (r->nocase)
         fputc('i', out);

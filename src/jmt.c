@@ -1343,7 +1343,7 @@ static void print_brics_grammar_top(FILE *fp, struct jmt *jmt, struct lens *lens
         struct state *sA = lens_state(jmt, i);
         if (sA == NULL){
             fprintf(fp, "L%p = ", l);
-            print_regexp(fp, l->ctype);
+            print_regexp_inner(fp, l->ctype);
             fprintf(fp, " (MAX)\n");
         }
     }

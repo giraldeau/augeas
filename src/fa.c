@@ -3624,7 +3624,7 @@ static int re_cset_as_string(const struct re *re, struct re_str *str) {
                 incl_dash = 0;
             str->len += len;
         }
-        str->len += incl_rbrack + incl_dash;
+        str->len += (incl_rbrack + incl_dash) * 2;
     }
     if (negate)
         str->len += 1;        /* For the ^ */
@@ -3637,8 +3637,10 @@ static int re_cset_as_string(const struct re *re, struct re_str *str) {
     *s++ = '[';
     if (negate)
         *s++ = '^';
-    if (incl_rbrack)
+    if (incl_rbrack) {
+        *s++ = '\\';
         *s++ = rbrack;
+    }
 
     if (re->no_ranges) {
         for (from = UCHAR_MIN; from <= UCHAR_MAX; from++) {
@@ -3676,8 +3678,10 @@ static int re_cset_as_string(const struct re *re, struct re_str *str) {
             }
         }
     }
-    if (incl_dash)
+    if (incl_dash) {
+        *s++ = '\\';
         *s++ = dash;
+    }
 
     *s = ']';
  done:
@@ -3744,7 +3748,7 @@ static int re_iter_as_string(const struct re *re, struct re_str *str) {
 
 static int re_as_string(const struct re *re, struct re_str *str) {
     /* Characters that must be escaped */
-    static const char * const special_chars = ".()[]{}*|+?\\^$";
+    static const char * const special_chars = ".()[]{}*|+?\\^$-";
     int result = 0;
 
     switch(re->type) {
