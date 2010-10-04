@@ -45,6 +45,7 @@ struct seq {
 
 struct state {
     struct info      *info;
+    struct node_info *node_info;
     const char       *text;
     struct seq       *seqs;
     char             *key;
@@ -413,8 +414,14 @@ static struct tree *get_store(struct lens *lens, struct state *state) {
         get_error(state, lens, "More than one store in a subtree");
     else if (! REG_MATCHED(state))
         no_match_error(state, lens);
-    else
+    else {
         state->value = token(state);
+        if (state->node_info) {
+            state->node_info->value_start = REG_START(state);
+            state->node_info->value_end = REG_END(state);
+            //printf("value=%s,value_start=%i,value_end=%i\n", state->value, state->value_start, state->value_end);
+        }
+    }
     return tree;
 }
 
@@ -440,8 +447,14 @@ static struct tree *get_key(struct lens *lens, struct state *state) {
     ensure0(lens->tag == L_KEY, state->info);
     if (! REG_MATCHED(state))
         no_match_error(state, lens);
-    else
+    else {
         state->key = token(state);
+        if (state->node_info) {
+            state->node_info->label_start = REG_START(state);
+            state->node_info->label_end = REG_END(state);
+            //printf("key=%s,key_start=%i,key_end=%i\n", state->key, state->key_start, state->key_end);
+        }
+    }
     return NULL;
 }
 
@@ -661,16 +674,22 @@ static struct skel *parse_quant_maybe(struct lens *lens, struct state *state,
 static struct tree *get_subtree(struct lens *lens, struct state *state) {
     char *key = state->key;
     char *value = state->value;
+    struct node_info *node_info = state->node_info;
+
     struct tree *tree = NULL, *children;
 
     state->key = NULL;
     state->value = NULL;
+    state->node_info = make_node_info(state->info);
+
     children = get_lens(lens->child, state);
 
     tree = make_tree(state->key, state->value, NULL, children);
+    tree->node_info = state->node_info;
 
     state->key = key;
     state->value = value;
+    state->node_info = node_info;
     return tree;
 }
 

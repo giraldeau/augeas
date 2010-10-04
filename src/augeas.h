@@ -149,6 +149,22 @@ int aug_set(augeas *aug, const char *path, const char *value);
  */
 int aug_setm(augeas *aug, const char *base, const char *sub, const char *value);
 
+/* Function: aug_info
+ *
+ * Get the information about the node associated with PATH. If the node is
+ * associated with a file, the filename, label and value start and end positions
+ * are set, and return value is 0. If the node associated with PATH doesn't
+ * belong to a file or is doesn't exists, filename and indexes are not set and
+ * return value is -1.
+ *
+ * Returns:
+ * 0 on success with filename, label_start, label_stop, value_start, value_end
+ * -1 on error
+ */
+
+int aug_info(augeas *aug, const char *path, char **filename,
+        uint *label_start, uint *label_end, uint *value_start, uint *value_end);
+
 /* Function: aug_insert
  *
  * Create a new sibling LABEL for PATH by inserting into the tree just

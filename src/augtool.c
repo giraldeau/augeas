@@ -659,6 +659,33 @@ static const struct command_def cmd_clearm_def = {
     " node matching SUB\n by interpreting SUB as a path expression relative"
     " to each node matching\n BASE. If SUB is '.', the nodes matching "
     "BASE will be modified."
+
+static void cmd_info(struct command *cmd) {
+    const char *path = arg_value(cmd, "path");
+    int r;
+    uint label_start, label_end, value_start, value_end;
+    char *filename;
+    r = aug_info(aug, path, &filename, &label_start, &label_end, &value_start, &value_end);
+    err_check(cmd);
+    if (r == -1){
+        printf ("Failed\n");
+        return;
+    }
+    printf("%s label=(%i:%i) value=(%i:%i)\n", filename, label_start, label_end, value_start, value_end);
+}
+
+static const struct command_opt_def cmd_info_opts[] = {
+    { .type = CMD_PATH, .name = "path", .optional = false,
+      .help = "node path" },
+    CMD_OPT_DEF_LAST
+};
+
+static const struct command_def cmd_info_def = {
+    .name = "info",
+    .opts = cmd_info_opts,
+    .handler = cmd_info,
+    .synopsis = "get the filename, label and value position in the text of this node",
+    .help = "get the filename, label and value position in the text of this node"
 };
 
 static void cmd_defvar(struct command *cmd) {
@@ -970,7 +997,11 @@ static const struct command_def const *commands[] = {
     &cmd_save_def,
     &cmd_set_def,
     &cmd_setm_def,
+<<<<<<< HEAD
     &cmd_clearm_def,
+=======
+    &cmd_info_def,
+>>>>>>> Add aug_info API function
     &cmd_help_def,
     &cmd_def_last
 };

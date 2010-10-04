@@ -113,6 +113,23 @@ void free_info(struct info *info) {
     free(info);
 }
 
+struct node_info *make_node_info(struct info *info) {
+    struct node_info *node_info = NULL;
+    if (make_ref(node_info) < 0) {
+        unref(node_info, node_info);
+    }
+    node_info->filename = ref(info->filename);
+    return node_info;
+}
+
+void free_node_info(struct node_info *node_info) {
+    if (node_info == NULL)
+        return;
+    assert(node_info->ref == 0);
+    unref(node_info->filename, string);
+    free(node_info);
+}
+
 /*
  * Local variables:
  *  indent-tabs-mode: nil
