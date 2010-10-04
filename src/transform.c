@@ -503,13 +503,12 @@ static int load_file(struct augeas *aug, struct lens *lens,
     struct info *info;
     make_ref(info);
     make_ref(info->filename);
-    info->filename->str = filename;
+    info->filename->str = strdup(filename);
     info->error = aug->error;
     info->first_line = 1;
 
     tree = lns_get(info, lens, text, &err);
 
-    info->filename->str = NULL;
     unref(info, info);
 
     if (err != NULL) {

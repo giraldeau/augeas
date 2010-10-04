@@ -484,11 +484,68 @@ static void testParseErrorReported(CuTest *tc) {
     aug_close(aug);
 }
 
+static void reset_indexes(uint *a, uint *b, uint *c, uint *d) {
+    *a = 0; *b = 0; *c = 0; *d = 0;
+}
+
+static void testNodeInfo(CuTest *tc) {
+    int r;
+    struct augeas *aug;
+    static const char *const expr1 = "/files/etc/hosts/1/ipaddr";
+    static const char *const expr2 = "/files";
+    static const char *const expr3 = "/random";
+
+    char * filename_ex, *filename_ac;
+    uint label_start, label_end, value_start, value_end;
+
+    if (asprintf(&filename_ex, "%s/build/test-load/%s/etc/hosts",
+            abs_top_builddir, tc->name) < 0)
+        CuFail(tc, "asprintf filename_ex failed");
+
+    aug = setup_writable_hosts(tc);
+
+    r = aug_load(aug);
+    CuAssertRetSuccess(tc, r);
+
+    /* test normal behavior */
+    r = aug_info(aug, expr1, &filename_ac, &label_start, &label_end, &value_start, &value_end);
+    CuAssertRetSuccess(tc, r);
+    CuAssertIntEquals(tc, 0, label_start);
+    CuAssertIntEquals(tc, 0, label_end);
+    CuAssertIntEquals(tc, 104, value_start);
+    CuAssertIntEquals(tc, 113, value_end);
+    CuAssertStrEquals(tc, filename_ex, filename_ac);
+    free(filename_ac);
+    filename_ac = NULL;
+    reset_indexes(&label_start, &label_end, &value_start, &value_end);
+
+    /* test a valid path not associated with a file */
+    r = aug_info(aug, expr2, &filename_ac, &label_start, &label_end, &value_start, &value_end);
+    CuAssertIntEquals(tc, -1, r);
+    CuAssertIntEquals(tc, 0, label_start);
+    CuAssertIntEquals(tc, 0, label_end);
+    CuAssertIntEquals(tc, 0, value_start);
+    CuAssertIntEquals(tc, 0, value_end);
+    CuAssertPtrEquals(tc, NULL, filename_ac);
+    reset_indexes(&label_start, &label_end, &value_start, &value_end);
+
+    /* test not valid path */
+    r = aug_info(aug, expr3, &filename_ac, &label_start, &label_end, &value_start, &value_end);
+    CuAssertIntEquals(tc, -1, r);
+    CuAssertIntEquals(tc, 0, label_start);
+    CuAssertIntEquals(tc, 0, label_end);
+    CuAssertIntEquals(tc, 0, value_start);
+    CuAssertIntEquals(tc, 0, value_end);
+    CuAssertPtrEquals(tc, NULL, filename_ac);
+    reset_indexes(&label_start, &label_end, &value_start, &value_end);
+
+    free(filename_ex);
+}
+
 int main(void) {
     char *output = NULL;
     CuSuite* suite = CuSuiteNew();
     CuSuiteSetup(suite, NULL, NULL);
-
     SUITE_ADD_TEST(suite, testDefault);
     SUITE_ADD_TEST(suite, testNoLoad);
     SUITE_ADD_TEST(suite, testNoAutoload);
@@ -502,6 +559,7 @@ int main(void) {
     SUITE_ADD_TEST(suite, testReloadDeletedMeta);
     SUITE_ADD_TEST(suite, testReloadExternalMod);
     SUITE_ADD_TEST(suite, testParseErrorReported);
+    SUITE_ADD_TEST(suite, testNodeInfo);
 
     abs_top_srcdir = getenv("abs_top_srcdir");
     if (abs_top_srcdir == NULL)

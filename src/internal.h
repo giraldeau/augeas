@@ -344,6 +344,7 @@ struct tree {
     struct tree *children;   /* List of children through NEXT */
     char        *value;
     int          dirty;
+    struct node_info *node_info;
 };
 
 /* The opaque structure used to represent path expressions. API's

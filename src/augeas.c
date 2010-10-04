@@ -841,6 +841,8 @@ struct tree *make_tree(char *label, char *value, struct tree *parent,
         tree_mark_dirty(tree);
     else
         tree->dirty = 1;
+    // FIXME: should allocation belong to make_tree?
+    //tree->node_info = make_node_info();
     return tree;
 }
 
@@ -860,6 +862,7 @@ static void free_tree_node(struct tree *tree) {
     if (tree == NULL)
         return;
 
+    unref(tree->node_info, node_info);
     free(tree->label);
     free(tree->value);
     free(tree);
@@ -941,6 +944,42 @@ int aug_rm(struct augeas *aug, const char *path) {
  error:
     api_exit(aug);
     return -1;
+}
+
+int aug_info(struct augeas *aug, const char *path, char **filename,
+        uint *label_start, uint *label_end, uint *value_start, uint *value_end) {
+    struct pathx *p = NULL;
+    int result;
+    struct tree *tree = NULL;
+
+    api_entry(aug);
+    p = pathx_aug_parse(aug, aug->origin, path, true);
+    tree = pathx_first(p);
+    if (tree == NULL || tree->node_info == NULL){
+        result = -1;
+        goto error;
+    }
+
+    *label_start = tree->node_info->label_start;
+    *label_end   = tree->node_info->label_end;
+    *value_start = tree->node_info->value_start;
+    *value_end   = tree->node_info->value_end;
+
+    /* We are safer here, make sure we have a filename */
+    if (tree->node_info->filename == NULL || tree->node_info->filename->str == NULL) {
+        *filename = strdup("");
+    } else {
+        *filename = strdup(tree->node_info->filename->str);
+    }
+
+    result = 0;
+    ERR_BAIL(aug);
+    api_exit(aug);
+    return result;
+
+ error:
+    api_exit(aug);
+    return result;
 }
 
 int tree_replace(struct augeas *aug, const char *path, struct tree *sub) {

@@ -53,12 +53,24 @@ struct info {
     ref_t    ref;
 };
 
+struct node_info {
+    struct string *filename;
+    uint label_start;
+    uint label_end;
+    uint value_start;
+    uint value_end;
+    ref_t ref;
+};
+
 char *format_info(struct info *info);
 
 void print_info(FILE *out, struct info *info);
 
 /* Do not call directly, use UNREF instead */
 void free_info(struct info *info);
+
+struct node_info *make_node_info(struct info *info);
+void free_node_info(struct node_info *node_info);
 
 #endif
 
