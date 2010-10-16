@@ -47,7 +47,8 @@ enum aug_flags {
     AUG_SAVE_NOOP    = (1 << 4),  /* Make save a no-op process, just record
                                      what would have changed */
     AUG_NO_LOAD      = (1 << 5),  /* Do not load the tree from AUG_INIT */
-    AUG_NO_MODL_AUTOLOAD = (1 << 6)
+    AUG_NO_MODL_AUTOLOAD = (1 << 6),
+    AUG_NO_NODE_INDEX    = (1 << 7) /* Do not keep track of node indexes */
 };
 
 /* Function: aug_init

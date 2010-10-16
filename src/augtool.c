@@ -659,12 +659,30 @@ static const struct command_def cmd_clearm_def = {
     " node matching SUB\n by interpreting SUB as a path expression relative"
     " to each node matching\n BASE. If SUB is '.', the nodes matching "
     "BASE will be modified."
+};
 
 static void cmd_info(struct command *cmd) {
     const char *path = arg_value(cmd, "path");
     int r;
     uint label_start, label_end, value_start, value_end;
     char *filename;
+    const char *option;
+    // FIXME: add check to see if AUG_NO_NODE_INDEX is set
+
+    if (aug_get(aug, AUGEAS_INDEX_OPTION, &option) != 1) {
+        printf("Error: option /augeas/index not found\n");
+        return;
+    }
+    if (strcmp(AUG_DISABLE, option) == 0) {
+        printf("Indexes are not enabled. To enable, run commands:\n");
+        printf("set %s %s\n", AUGEAS_INDEX_OPTION, AUG_ENABLE);
+        printf("rm %s\n", AUGEAS_FILES_TREE);
+        printf("load\n");
+        return;
+    } else if (strcmp(AUG_ENABLE, option) != 0) {
+        printf("Error: option %s must be %s or %s\n", AUGEAS_INDEX_OPTION, AUG_ENABLE, AUG_DISABLE);
+        return;
+    }
     r = aug_info(aug, path, &filename, &label_start, &label_end, &value_start, &value_end);
     err_check(cmd);
     if (r == -1){
@@ -997,11 +1015,8 @@ static const struct command_def const *commands[] = {
     &cmd_save_def,
     &cmd_set_def,
     &cmd_setm_def,
-<<<<<<< HEAD
     &cmd_clearm_def,
-=======
     &cmd_info_def,
->>>>>>> Add aug_info API function
     &cmd_help_def,
     &cmd_def_last
 };
@@ -1078,7 +1093,8 @@ static void parse_opts(int argc, char **argv) {
         VAL_NO_STDINC = CHAR_MAX + 1,
         VAL_NO_LOAD = VAL_NO_STDINC + 1,
         VAL_NO_AUTOLOAD = VAL_NO_LOAD + 1,
-        VAL_VERSION = VAL_NO_AUTOLOAD + 1
+        VAL_VERSION = VAL_NO_AUTOLOAD + 1,
+        VAL_NO_INDEX = VAL_VERSION + 1
     };
     struct option options[] = {
         { "help",      0, 0, 'h' },
@@ -1093,6 +1109,7 @@ static void parse_opts(int argc, char **argv) {
         { "nostdinc",  0, 0, VAL_NO_STDINC },
         { "noload",    0, 0, VAL_NO_LOAD },
         { "noautoload", 0, 0, VAL_NO_AUTOLOAD },
+        { "noindex", 0, 0, VAL_NO_INDEX },
         { "version",   0, 0, VAL_VERSION },
         { 0, 0, 0, 0}
     };
@@ -1139,6 +1156,9 @@ static void parse_opts(int argc, char **argv) {
         case VAL_VERSION:
             flags |= AUG_NO_MODL_AUTOLOAD;
             print_version = true;
+            break;
+        case VAL_NO_INDEX:
+            flags |= AUG_NO_NODE_INDEX;
             break;
         default:
             usage();

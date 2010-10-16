@@ -680,7 +680,8 @@ static struct tree *get_subtree(struct lens *lens, struct state *state) {
 
     state->key = NULL;
     state->value = NULL;
-    state->node_info = make_node_info(state->info);
+    if (!(state->info->flags & AUG_NO_NODE_INDEX))
+        state->node_info = make_node_info(state->info);
 
     children = get_lens(lens->child, state);
 

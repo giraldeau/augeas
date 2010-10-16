@@ -421,6 +421,13 @@ struct augeas *aug_init(const char *root, const char *loadpath,
     } else {
         aug_set(result, AUGEAS_META_SAVE_MODE, AUG_SAVE_OVERWRITE_TEXT);
     }
+
+    if (flags & AUG_NO_NODE_INDEX) {
+        aug_set(result, AUGEAS_INDEX_OPTION, AUG_DISABLE);
+    } else {
+        aug_set(result, AUGEAS_INDEX_OPTION, AUG_ENABLE);
+    }
+
     /* Make sure we always have /files and /augeas/variables */
     tree_path_cr(result->origin, 1, s_files);
     tree_path_cr(result->origin, 2, s_augeas, s_vars);
@@ -503,6 +510,7 @@ static void tree_rm_dirty_leaves(struct augeas *aug, struct tree *tree,
 }
 
 int aug_load(struct augeas *aug) {
+    const char *option = NULL;
     struct tree *meta = tree_child_cr(aug->origin, s_augeas);
     struct tree *meta_files = tree_child_cr(meta, s_files);
     struct tree *files = tree_child_cr(aug->origin, s_files);
@@ -527,6 +535,16 @@ int aug_load(struct augeas *aug) {
      * (4) Remove entries from /augeas/files and /files that correspond
      *     to directories without any files of interest
      */
+
+    /* update flags according to option value */
+    if (aug_get(aug, AUGEAS_INDEX_OPTION, &option) == 1) {
+        if (strcmp(option, AUG_ENABLE) == 0) {
+            aug->flags &= ~AUG_NO_NODE_INDEX;
+        } else if (strcmp(option, AUG_DISABLE) == 0) {
+            aug->flags |= AUG_NO_NODE_INDEX;
+        }
+    }
+
     tree_clean(meta_files);
     tree_mark_files(meta_files);
 

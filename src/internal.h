@@ -90,6 +90,10 @@
 /* Where to put information about parsing of path expressions */
 #define AUGEAS_META_PATHX AUGEAS_META_TREE "/pathx"
 
+/* Define: AUGEAS_INDEX_OPTION
+ * Enable or disable node indexes */
+#define AUGEAS_INDEX_OPTION AUGEAS_META_TREE "/index"
+
 /* Define: AUGEAS_LENS_ENV
  * Name of env var that contains list of paths to search for additional
    spec files */
@@ -110,6 +114,10 @@
 #define AUG_SAVE_NEWFILE_TEXT "newfile"
 #define AUG_SAVE_NOOP_TEXT "noop"
 #define AUG_SAVE_OVERWRITE_TEXT "overwrite"
+
+/* constants for options in the tree */
+#define AUG_ENABLE "enable"
+#define AUG_DISABLE "disable"
 
 #ifdef __GNUC__
 
