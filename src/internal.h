@@ -408,6 +408,8 @@ struct tree *tree_find(struct augeas *aug, const char *path);
  * Returns the node or NULL on error
  */
 struct tree *tree_find_cr(struct augeas *aug, const char *path);
+/* Get the size of this tree */
+int tree_size(struct tree *tree);
 
 /* Struct: memstream
  * Wrappers to simulate OPEN_MEMSTREAM where that's not available. The
