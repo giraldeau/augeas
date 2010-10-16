@@ -223,14 +223,19 @@ static void testDefNodeCreateMeta(CuTest *tc) {
 }
 
 static void testTreeSize(CuTest *tc) {
-    int size;
+    int s1, s2, s3;
     struct augeas *aug;
 
     aug = aug_init(root, loadpath, AUG_NO_STDINC|AUG_NO_LOAD);
     CuAssertPtrNotNull(tc, aug);
 
-    size = aug_size(aug, "/augeas/version");
-    CuAssertIntEquals(tc, 8, size);
+    s1 = aug_size(aug, "/augeas/version");
+    CuAssertIntEquals(tc, 8, s1);
+
+    s1 = aug_size(aug, "/");
+    s2 = aug_size(aug, "/augeas");
+    s3 = aug_size(aug, "/files");
+    CuAssertIntEquals(tc, s1, s2 + s3 + 1);
 }
 
 int main(void) {

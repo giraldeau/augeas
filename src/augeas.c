@@ -1399,7 +1399,7 @@ int aug_print(const struct augeas *aug, FILE *out, const char *pathin) {
 
 int aug_size(const struct augeas *aug, const char *path) {
     struct pathx *p;
-    struct tree *root;
+    struct tree *tree;
     int r = 0;
 
     api_entry(aug);
@@ -1410,10 +1410,10 @@ int aug_size(const struct augeas *aug, const char *path) {
 
     p = pathx_aug_parse(aug, aug->origin, path, true);
     ERR_BAIL(aug);
-    pathx_find_one(p, &root);
 
-    if (root != NULL)
-        r = tree_size(root);
+    for (tree = pathx_first(p); tree != NULL; tree = pathx_next(p)) {
+        r += tree_size(tree);
+    }
 
     free_pathx(p);
 
