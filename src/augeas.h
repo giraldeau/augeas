@@ -292,6 +292,16 @@ int aug_load(augeas *aug);
  */
 int aug_print(const augeas *aug, FILE *out, const char *path);
 
+/* Function: aug_size
+ *
+ * Get the size of the augeas tree.
+ * FIXME: the path argument is not yet taken into account
+ *
+ * Returns:
+ * number of nodes of the tree on success, or a negative value on failure
+ */
+int aug_size(const augeas *aug, const char *path);
+
 /* Function: aug_close
  *
  * Close this Augeas instance and free any storage associated with

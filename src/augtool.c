@@ -834,6 +834,29 @@ static const struct command_def cmd_print_def = {
     .help = "Print entries in the tree.  If PATH is given, printing starts there,\n otherwise the whole tree is printed"
 };
 
+static void cmd_size(struct command *cmd) {
+    const char *path = arg_value(cmd, "path");
+    int size;
+
+    size = aug_size(aug, path);
+    err_check(cmd);
+    printf("tree size: %d\n", size);
+}
+
+static const struct command_opt_def cmd_size_opts[] = {
+    { .type = CMD_PATH, .name = "path", .optional = true,
+      .help = "get the number of nodes of this subtree" },
+    CMD_OPT_DEF_LAST
+};
+
+static const struct command_def cmd_size_def = {
+    .name = "size",
+    .opts = cmd_size_opts,
+    .handler = cmd_size,
+    .synopsis = "size of this subtree",
+    .help = "Print the size of this tree.  If PATH is given, returns the size of the subtree there,\n otherwise, returns the size of the whole tree"
+};
+
 static void cmd_save(struct command *cmd) {
     int r;
     r = aug_save(aug);
@@ -993,6 +1016,7 @@ static const struct command_def const *commands[] = {
     &cmd_match_def,
     &cmd_mv_def,
     &cmd_print_def,
+    &cmd_size_def,
     &cmd_rm_def,
     &cmd_save_def,
     &cmd_set_def,

@@ -1397,6 +1397,15 @@ int aug_print(const struct augeas *aug, FILE *out, const char *pathin) {
     return -1;
 }
 
+int aug_size(const struct augeas *aug, const char *path) {
+    int r;
+
+    api_entry(aug);
+    r = tree_size(aug->origin);
+    api_exit(aug);
+    return r;
+}
+
 void aug_close(struct augeas *aug) {
     if (aug == NULL)
         return;
