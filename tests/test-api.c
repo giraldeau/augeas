@@ -222,6 +222,17 @@ static void testDefNodeCreateMeta(CuTest *tc) {
     aug_close(aug);
 }
 
+static void testTreeSize(CuTest *tc) {
+    int size;
+    struct augeas *aug;
+
+    aug = aug_init(root, loadpath, AUG_NO_STDINC|AUG_NO_LOAD);
+    CuAssertPtrNotNull(tc, aug);
+
+    size = aug_size(aug, "/");
+    CuAssertIntEquals(tc, 479, size);
+}
+
 int main(void) {
     char *output = NULL;
     CuSuite* suite = CuSuiteNew();
@@ -232,6 +243,7 @@ int main(void) {
     SUITE_ADD_TEST(suite, testDefVarMeta);
     SUITE_ADD_TEST(suite, testDefNodeExistingMeta);
     SUITE_ADD_TEST(suite, testDefNodeCreateMeta);
+    SUITE_ADD_TEST(suite, testTreeSize);
 
     abs_top_srcdir = getenv("abs_top_srcdir");
     if (abs_top_srcdir == NULL)
