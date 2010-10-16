@@ -294,11 +294,11 @@ int aug_print(const augeas *aug, FILE *out, const char *path);
 
 /* Function: aug_size
  *
- * Get the size of the augeas tree.
- * FIXME: the path argument is not yet taken into account
+ * Get the number of nodes in an augeas tree.
  *
  * Returns:
- * number of nodes of the tree on success, or a negative value on failure
+ * number of nodes of the tree under PATH on success, or a negative value
+ * on failure
  */
 int aug_size(const augeas *aug, const char *path);
 

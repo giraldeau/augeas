@@ -229,8 +229,8 @@ static void testTreeSize(CuTest *tc) {
     aug = aug_init(root, loadpath, AUG_NO_STDINC|AUG_NO_LOAD);
     CuAssertPtrNotNull(tc, aug);
 
-    size = aug_size(aug, "/");
-    CuAssertIntEquals(tc, 479, size);
+    size = aug_size(aug, "/augeas/version");
+    CuAssertIntEquals(tc, 8, size);
 }
 
 int main(void) {
