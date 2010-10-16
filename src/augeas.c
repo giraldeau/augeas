@@ -173,6 +173,14 @@ void tree_store_value(struct tree *tree, char **value) {
     tree_mark_dirty(tree);
 }
 
+int tree_size(struct tree *tree) {
+    int size = 1;
+    list_for_each(c, tree->children) {
+        size += tree_size(c);
+    }
+    return size;
+}
+
 int tree_set_value(struct tree *tree, const char *value) {
     char *v = NULL;
 
