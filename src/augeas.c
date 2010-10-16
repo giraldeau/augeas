@@ -173,6 +173,14 @@ void tree_store_value(struct tree *tree, char **value) {
     tree_mark_dirty(tree);
 }
 
+int tree_size(struct tree *tree) {
+    int size = 1;
+    list_for_each(c, tree->children) {
+        size += tree_size(c);
+    }
+    return size;
+}
+
 int tree_set_value(struct tree *tree, const char *value) {
     char *v = NULL;
 
@@ -1345,6 +1353,33 @@ int aug_print(const struct augeas *aug, FILE *out, const char *pathin) {
 
     api_exit(aug);
     return result;
+ error:
+    api_exit(aug);
+    return -1;
+}
+
+int aug_node_count(const struct augeas *aug, const char *path) {
+    struct pathx *p;
+    struct tree *tree;
+    int r = 0;
+
+    api_entry(aug);
+
+    if (path == NULL || strlen(path) == 0) {
+        path = "/*";
+    }
+
+    p = pathx_aug_parse(aug, aug->origin, path, true);
+    ERR_BAIL(aug);
+
+    for (tree = pathx_first(p); tree != NULL; tree = pathx_next(p)) {
+        r += tree_size(tree);
+    }
+
+    free_pathx(p);
+
+    api_exit(aug);
+    return r;
  error:
     api_exit(aug);
     return -1;
