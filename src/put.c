@@ -59,6 +59,7 @@ struct state {
     struct split     *split;
     const char       *key;
     const char       *value;
+    const char       *label;
     struct dict      *dict;
     struct skel      *skel;
     char             *path;   /* Position in the tree, for errors */
@@ -438,6 +439,11 @@ static void put_subtree(struct lens *lens, struct state *state) {
 
     struct tree *tree = state->split->tree;
     struct split *split = NULL;
+    const char *oldlabel = NULL;
+    if (state->label != NULL) {
+        oldlabel = strdup(state->label);
+        state->label = NULL;
+    }
 
     state->key = tree->label;
     state->value = tree->value;
@@ -458,6 +464,10 @@ static void put_subtree(struct lens *lens, struct state *state) {
     oldstate.path = state->path;
     *state = oldstate;
     *state->split= oldsplit;
+    if (state->label != NULL) {
+        free(state->label);
+        state->label = oldlabel;
+    }
     free_split(split);
     state->path[oldpathlen] = '\0';
 }
@@ -586,6 +596,22 @@ static void put_store(struct lens *lens, struct state *state) {
     }
 }
 
+static void put_key(struct lens *lens, struct state *state) {
+    assert(lens->tag == L_KEY);
+    // remove the prefix part of state->key if any
+    int offset = 0;
+    if (state->label != NULL) {
+        offset = strlen(state->label);
+    }
+    assert(strlen(state->key) >= offset);
+    fprintf(state->out, "%s", state->key + offset);
+}
+
+static void put_label(struct lens *lens, struct state *state) {
+    assert(lens->tag == L_LABEL);
+    state->label = strdup(lens->string->str);
+}
+
 static void put_rec(struct lens *lens, struct state *state) {
     put_lens(lens->body, state);
 }
@@ -602,9 +628,11 @@ static void put_lens(struct lens *lens, struct state *state) {
         put_store(lens, state);
         break;
     case L_KEY:
-        fprintf(state->out, "%s", state->key);
+        put_key(lens, state);
         break;
     case L_LABEL:
+        put_label(lens, state);
+        break;
     case L_VALUE:
         /* Nothing to do */
         break;
@@ -724,9 +752,11 @@ static void create_lens(struct lens *lens, struct state *state) {
         put_store(lens, state);
         break;
     case L_KEY:
-        fprintf(state->out, "%s", state->key);
+        put_key(lens, state);
         break;
     case L_LABEL:
+        put_label(lens, state);
+        break;
     case L_VALUE:
         /* Nothing to do */
         break;
@@ -787,6 +817,7 @@ void lns_put(FILE *out, struct lens *lens, struct tree *tree,
     put_lens(lens, &state);
 
     free(state.path);
+    free(state.label);
     free_split(state.split);
     free_skel(state.skel);
     free_dict(state.dict);

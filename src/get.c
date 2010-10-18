@@ -433,10 +433,26 @@ static struct skel *parse_value(struct lens *lens,
 
 static struct tree *get_key(struct lens *lens, struct state *state) {
     ensure0(lens->tag == L_KEY, state->info);
-    if (! REG_MATCHED(state))
+    char *tok, *key;
+    int len = 0;
+    if (! REG_MATCHED(state)) {
         no_match_error(state, lens);
-    else
-        state->key = token(state);
+        return NULL;
+    }
+    tok = token(state);
+    if (state->key != NULL) {
+        len = strlen(state->key) + strlen(tok) + 1;
+        key = malloc(len);
+        // FIXME: handle no memory error
+        //if (key < 0)
+        //    return ENOMEM;
+        snprintf(key, len, "%s%s", state->key, tok);
+        free(state->key);
+        free(tok);
+        state->key = key;
+    } else {
+        state->key = tok;
+    }
     return NULL;
 }
 
@@ -447,7 +463,20 @@ static struct skel *parse_key(struct lens *lens, struct state *state) {
 
 static struct tree *get_label(struct lens *lens, struct state *state) {
     ensure0(lens->tag == L_LABEL, state->info);
-    state->key = strdup(lens->string->str);
+    int len;
+    char *key;
+    if (state->key != NULL) {
+        len = strlen(state->key) + strlen(lens->string->str) + 1;
+        key = malloc(len);
+        // FIXME: handle no memory error
+        //if (key < 0)
+        //    return ENOMEM;
+        snprintf(key, len, "%s%s", state->key, lens->string->str);
+        free(state->key);
+        state->key = key;
+    } else {
+        state->key = strdup(lens->string->str);
+    }
     return NULL;
 }
 

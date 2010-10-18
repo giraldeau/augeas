@@ -80,6 +80,7 @@ struct lens {
     struct jmt               *jmt;    /* NULL when recursive == 0 */
     unsigned int              value : 1;
     unsigned int              key : 1;
+    unsigned int              label : 1;
     unsigned int              recursive : 1;
     unsigned int              consumes_value : 1;
     /* Whether we are inside a recursive lens or outside */

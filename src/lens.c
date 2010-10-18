@@ -198,6 +198,7 @@ static struct lens *make_lens_binop(enum lens_tag tag, struct info *info,
     for (int i=0; i < lens->nchildren; i++) {
         lens->value = lens->value || lens->children[i]->value;
         lens->key = lens->key || lens->children[i]->key;
+        lens->label = lens->label || lens->children[i]->label;
     }
 
     if (ALLOC_N(types, lens->nchildren) < 0)
@@ -269,9 +270,14 @@ struct value *lns_make_concat(struct info *info,
         return make_exn_value(info, "Multiple stores in concat");
     }
     if (l1->key && l2->key) {
-        return make_exn_value(info, "Multiple keys/labels in concat");
+        return make_exn_value(info, "Multiple keys in concat");
     }
-
+    if (l1->label && l2->label) {
+        return make_exn_value(info, "Multiple labels in concat");
+    }
+    if (l1->key && l2->label) {
+        return make_exn_value(info, "Label lens following a key lens is not allowed");
+    }
     lens = make_lens_binop(L_CONCAT, info, l1, l2, regexp_concat_n);
     lens->consumes_value = consumes_value;
     if (! recursive)
@@ -494,7 +500,8 @@ struct value *lns_make_prim(enum lens_tag tag, struct info *info,
     lens = make_lens(tag, info);
     lens->regexp = regexp;
     lens->string = string;
-    lens->key = (tag == L_KEY || tag == L_LABEL || tag == L_SEQ);
+    lens->key = (tag == L_KEY || tag == L_SEQ);
+    lens->label = (tag == L_LABEL);
     lens->value = (tag == L_STORE || tag == L_VALUE);
     lens->consumes_value = (tag == L_STORE || tag == L_VALUE);
     lens->atype = regexp_make_empty(info);
@@ -1886,7 +1893,9 @@ static struct value *typecheck(struct lens *l, int check) {
         if (exn == NULL && l->value)
             exn = make_exn_value(l->info, "Multiple stores in iteration");
         if (exn == NULL && l->key)
-            exn = make_exn_value(l->info, "Multiple keys/labels in iteration");
+            exn = make_exn_value(l->info, "Multiple keys in iteration");
+        if (exn == NULL && l->label)
+            exn = make_exn_value(l->info, "Multiple labels in iteration");
         break;
     case L_MAYBE:
         if (check)
