@@ -2123,9 +2123,7 @@ void dump_lens(FILE *out, struct lens *lens){
         re = ltype(lens, t);
         if (re == NULL)
             continue;
-        fprintf(out, "%s=",lens_type_names[t]);
-        print_regexp(out, re);
-        fprintf(out, "\\n");
+        fprintf(out, "%s=%s\\n", lens_type_names[t], re->pattern->str);
     }
 
     fprintf(out, "recursive=%x\\n", lens->recursive);
