@@ -43,6 +43,15 @@ enum lens_tag {
     L_REC
 };
 
+/* Lens names for pretty printing */
+static const char *const tags[] = {
+    "del", "store", "value", "key", "label", "seq", "counter",
+    "concat", "union",
+    "subtree", "star", "maybe", "rec"
+};
+
+#define ltag(lens) (tags[lens->tag - L_DEL])
+
 /* A lens. The way the type information is computed is a little
  * delicate. There are various regexps involved to form the final type:
  *
@@ -217,8 +226,8 @@ void free_lens(struct lens *lens);
  * VALUE; we do this behind the scenes by rewriting regular expressions for
  * values.
  */
-#define ENC_EQ        "\003"
-#define ENC_SLASH     "\004"
+#define ENC_EQ        "="
+#define ENC_SLASH     "#"
 #define ENC_NULL      ""
 #define ENC_EQ_CH     (ENC_EQ[0])
 #define ENC_SLASH_CH  (ENC_SLASH[0])

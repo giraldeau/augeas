@@ -139,6 +139,8 @@ void free_regexp(struct regexp *regexp) {
 }
 
 int regexp_is_empty_pattern(struct regexp *r) {
+    if (r == NULL)
+        return 1;
     for (char *s = r->pattern->str; *s; s++) {
         if (*s != '(' && *s != ')')
             return 0;
@@ -462,11 +464,21 @@ int regexp_check(struct regexp *r, const char **msg) {
 int regexp_match(struct regexp *r,
                  const char *string, const int size,
                  const int start, struct re_registers *regs) {
+    int result = 0;
+    if (r == NULL)
+        return 0;
     if (r->re == NULL) {
         if (regexp_compile(r) == -1)
             return -3;
     }
-    return re_match(r->re, string, size, start, regs);
+    result = re_match(r->re, string, size, start, regs);
+    if (regs != NULL) {
+        char *str;
+        str = strndup(string + start, size);
+        dump_regs(regs, string);
+        FREE(str);
+    }
+    return result;
 }
 
 int regexp_matches_empty(struct regexp *r) {
@@ -474,6 +486,8 @@ int regexp_matches_empty(struct regexp *r) {
 }
 
 int regexp_nsub(struct regexp *r) {
+    if (r == NULL)
+        return 0;
     if (r->re == NULL)
         if (regexp_compile(r) == -1)
             return -1;
@@ -487,6 +501,16 @@ void regexp_release(struct regexp *regexp) {
     }
 }
 
+#if ENABLE_DEBUG
+void dump_regs(struct re_registers *regs, const char *text) {
+    char *str;
+    for(int i=0; i < regs->num_regs; i++){
+        str = strndup(text + regs->start[i], regs->end[i] - regs->start[i]);
+        printf("%d start=%d end=%d string=%s\n", i, (int)regs->start[i], (int)regs->end[i], str);
+        FREE(str);
+    }
+}
+#endif
 /*
  * Local variables:
  *  indent-tabs-mode: nil

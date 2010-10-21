@@ -53,15 +53,6 @@ static struct value *typecheck_concat(struct info *,
 static struct value *typecheck_iter(struct info *info, struct lens *l);
 static struct value *typecheck_maybe(struct info *info, struct lens *l);
 
-/* Lens names for pretty printing */
-static const char *const tags[] = {
-    "del", "store", "value", "key", "label", "seq", "counter",
-    "concat", "union",
-    "subtree", "star", "maybe", "rec"
-};
-
-#define ltag(lens) (tags[lens->tag - L_DEL])
-
 static const struct string digits_string = {
     .ref = REF_MAX, .str = (char *) "[0123456789]+"
 };
@@ -270,9 +261,6 @@ struct value *lns_make_concat(struct info *info,
     }
     if (l1->value && l2->value) {
         return make_exn_value(info, "Multiple stores in concat");
-    }
-    if (l1->key && l2->key) {
-        return make_exn_value(info, "Multiple keys/labels in concat");
     }
 
     lens = make_lens_binop(L_CONCAT, info, l1, l2, regexp_concat_n);
@@ -500,7 +488,10 @@ struct value *lns_make_prim(enum lens_tag tag, struct info *info,
     lens->key = (tag == L_KEY || tag == L_LABEL || tag == L_SEQ);
     lens->value = (tag == L_STORE || tag == L_VALUE);
     lens->consumes_value = (tag == L_STORE || tag == L_VALUE);
-    lens->atype = regexp_make_empty(info);
+    //lens->atype = regexp_make_empty(info);
+    //lens->atype = make_regexp(info, strdup(""), 0);
+    //regexp_compile(lens->atype);
+    lens->atype = NULL;
     /* Set the ctype */
     if (tag == L_DEL || tag == L_STORE || tag == L_KEY) {
         lens->ctype = ref(regexp);

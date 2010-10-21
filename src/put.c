@@ -171,6 +171,7 @@ static struct split *make_split(struct tree *tree) {
 static struct split *split_append(struct split **split, struct split *tail,
                                   struct tree *tree, struct tree *follow,
                                   char *enc, size_t start, size_t end) {
+    printf("split_append enc=%s start=%d end=%d\n", enc, start, end);
     struct split *sp;
     CALLOC(sp, 1);
     sp->tree = tree;
@@ -231,9 +232,21 @@ static struct split *split_concat(struct state *state, struct lens *lens) {
 
     struct tree *cur = outer->tree;
     int reg = 1;
+    printf("begin test\n");
+    for (int i=0; i < lens->nchildren; i++) {
+        printf("lens=%s atype_nsub=%d atype=%s\n", ltag(lens), regexp_nsub(lens->children[i]->atype), lens->atype != NULL ? lens->atype->pattern->str : "");
+        reg += 1 + regexp_nsub(lens->children[i]->atype);
+    }
+    reg = 1;
+    printf("end test\n");
     for (int i=0; i < lens->nchildren; i++) {
         assert(reg < regs.num_regs);
         assert(regs.start[reg] != -1);
+        if (lens->children[i]->atype != NULL) {
+            tail = split_append(&split, tail, cur, follow,
+                            outer->enc, regs.start[reg], regs.end[reg]);
+            continue;
+        }
         struct tree *follow = cur;
         for (int j = regs.start[reg]; j < regs.end[reg]; j++) {
             if (outer->enc[j] == ENC_SLASH_CH)
