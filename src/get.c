@@ -433,10 +433,30 @@ static struct skel *parse_value(struct lens *lens,
 
 static struct tree *get_key(struct lens *lens, struct state *state) {
     ensure0(lens->tag == L_KEY, state->info);
-    if (! REG_MATCHED(state))
+    int r;
+    char *tok;
+
+    if (! REG_MATCHED(state)) {
         no_match_error(state, lens);
-    else
-        state->key = token(state);
+        return NULL;
+    }
+    tok = token(state);
+    if (tok == NULL) {
+        // FIXME: get_error will likely crash and burn on OOM
+        get_error(state, lens, "Out of memory");
+        return NULL;
+    }
+    if (state->key == NULL) {
+        state->key = tok;
+    } else {
+        r = REALLOC_N(state->key, strlen(state->key) + strlen(tok) + 1);
+        if (r < 0) {
+            get_error(state, lens, "Out of memory");
+            return NULL;
+        }
+        strcat(state->key, tok);
+        FREE(tok);
+    }
     return NULL;
 }
 
@@ -447,7 +467,24 @@ static struct skel *parse_key(struct lens *lens, struct state *state) {
 
 static struct tree *get_label(struct lens *lens, struct state *state) {
     ensure0(lens->tag == L_LABEL, state->info);
-    state->key = strdup(lens->string->str);
+    int r;
+    char *str = strdup(lens->string->str);
+    if (str == NULL) {
+        // FIXME: get_error will likely crash and burn on OOM
+        get_error(state, lens, "Out of memory");
+        return NULL;
+    }
+    if (state->key == NULL) {
+        state->key = str;
+    } else {
+        r = REALLOC_N(state->key, strlen(state->key) + strlen(str) + 1);
+        if (r < 0) {
+            get_error(state, lens, "Out of memory");
+            return NULL;
+        }
+        strcat(state->key, str);
+        FREE(str);
+    }
     return NULL;
 }
 

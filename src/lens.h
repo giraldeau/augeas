@@ -85,6 +85,8 @@ struct lens {
     /* Whether we are inside a recursive lens or outside */
     unsigned int              rec_internal : 1;
     unsigned int              ctype_nullable : 1;
+    /* Set if the lens has atype ready to typecheck */
+    unsigned int              atype_complete : 1;
     union {
         /* Primitive lenses */
         struct {                   /* L_DEL uses both */
@@ -239,6 +241,9 @@ void free_lens(struct lens *lens);
  *    { key1 = value1 } { key2 = value2 } .. { keyN = valueN }
  */
 char *enc_format(const char *e, size_t len);
+
+void dump_lens_tree(struct lens *lens);
+void dump_lens(FILE *out, struct lens *lens);
 
 #endif
 

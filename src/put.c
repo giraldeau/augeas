@@ -64,6 +64,12 @@ struct state {
     char             *path;   /* Position in the tree, for errors */
     size_t            pos;
     struct lns_error *error;
+    /* We keep a register to hold the parse of a key in the case of multiple
+     * keys and labels inside subtree. KREGS is the register that hold the match
+     * of the subtree's key and KNREGS is updated as we traverse lenses in a
+     * subtree */
+    struct re_registers *kregs;
+    uint                 knreg;
 };
 
 static void create_lens(struct lens *lens, struct state *state);
@@ -427,17 +433,28 @@ static int skel_instance_of(struct lens *lens, struct skel *skel) {
     return 0;
 }
 
+// FIXME: this function is duplicated with get.c, should be factorized
+static void free_regs(struct state *state) {
+    if (state->kregs != NULL) {
+        free(state->kregs->start);
+        free(state->kregs->end);
+        FREE(state->kregs);
+    }
+}
+
 /*
  * put
  */
 static void put_subtree(struct lens *lens, struct state *state) {
     assert(lens->tag == L_SUBTREE);
+    int count;
     struct state oldstate = *state;
     struct split oldsplit = *state->split;
     size_t oldpathlen = strlen(state->path);
 
     struct tree *tree = state->split->tree;
     struct split *split = NULL;
+    int need_free = false;
 
     state->key = tree->label;
     state->value = tree->value;
@@ -445,6 +462,28 @@ static void put_subtree(struct lens *lens, struct state *state) {
 
     split = make_split(tree->children);
     set_split(state, split);
+
+    if (state->key == NULL) {
+        need_free = true;
+        state->key = strdup("");
+        if (state->key == NULL) {
+            // get_error Out of memory
+            return;
+        }
+    }
+    if (ALLOC(state->kregs) < 0) {
+        // FIXME: appropriate error handling
+        //get_error(state, lens, "Out of memory");
+        return;
+    }
+    count = regexp_match(lens->child->ktype, state->key,
+                         strlen(state->key), 0, state->kregs);
+    if (count < -1) {
+        regexp_match_error(state, lens, count, split);
+        free_regs(state);
+        // FIXME: return error
+    }
+    state->knreg = 0;
 
     dict_lookup(tree->label, state->dict, &state->skel, &state->dict);
     if (state->skel == NULL || ! skel_instance_of(lens->child, state->skel)) {
@@ -454,6 +493,9 @@ static void put_subtree(struct lens *lens, struct state *state) {
     }
     assert(state->error != NULL || state->split->next == NULL);
 
+    free_regs(state);
+    if (need_free)
+        FREE(state->key);
     oldstate.error = state->error;
     oldstate.path = state->path;
     *state = oldstate;
@@ -481,6 +523,8 @@ static void put_union(struct lens *lens, struct state *state) {
                 create_lens(l, state);
             return;
         }
+        if (lens->children[i]->ktype != NULL)
+            state->knreg += 1 + regexp_nsub(lens->children[i]->ktype);
     }
     put_error(state, lens, "None of the alternatives in the union match");
 }
@@ -494,6 +538,7 @@ static void put_concat(struct lens *lens, struct state *state) {
 
     state->skel = state->skel->skels;
     set_split(state, split);
+    state->knreg += 1;
     for (int i=0; i < lens->nchildren; i++) {
         if (state->split == NULL) {
             put_error(state, lens,
@@ -504,6 +549,8 @@ static void put_concat(struct lens *lens, struct state *state) {
         put_lens(lens->children[i], state);
         state->skel = state->skel->next;
         next_split(state);
+        if (lens->children[i]->ktype != NULL)
+            state->knreg += 1 + regexp_nsub(lens->children[i]->ktype);
     }
     list_free(split);
     set_split(state, oldsplit);
@@ -540,6 +587,8 @@ static void put_quant_star(struct lens *lens, struct state *state) {
     state->skel = state->skel->skels;
     set_split(state, split);
     last_split = state->split;
+    if (lens->ktype != NULL)
+        state->knreg += 1;
     while (state->split != NULL && state->skel != NULL) {
         put_lens(lens->child, state);
         state->skel = state->skel->next;
@@ -562,6 +611,8 @@ static void put_quant_maybe(struct lens *lens, struct state *state) {
     assert(lens->tag == L_MAYBE);
     struct lens *child = lens->child;
 
+    if (lens->ktype != NULL)
+        state->knreg += 1;
     if (applies(child, state)) {
         if (skel_instance_of(child, state->skel))
             put_lens(child, state);
@@ -590,6 +641,14 @@ static void put_rec(struct lens *lens, struct state *state) {
     put_lens(lens->body, state);
 }
 
+static void put_key(struct lens *lens, struct state *state) {
+    assert(state->knreg < state->kregs->num_regs);
+    assert(state->kregs->start[state->knreg] != -1);
+    char *tok = strndup(state->key, state->kregs->end[state->knreg] - state->kregs->start[state->knreg]);
+    fprintf(state->out, "%s", tok);
+    FREE(tok);
+}
+
 static void put_lens(struct lens *lens, struct state *state) {
     if (state->error != NULL)
         return;
@@ -602,7 +661,7 @@ static void put_lens(struct lens *lens, struct state *state) {
         put_store(lens, state);
         break;
     case L_KEY:
-        fprintf(state->out, "%s", state->key);
+        put_key(lens, state);
         break;
     case L_LABEL:
     case L_VALUE:
@@ -784,12 +843,15 @@ void lns_put(FILE *out, struct lens *lens, struct tree *tree,
     state.out = out;
     state.split = make_split(tree);
     state.key = tree->label;
+    if (ALLOC(state.kregs) < 0)
+        return;
     put_lens(lens, &state);
 
     free(state.path);
     free_split(state.split);
     free_skel(state.skel);
     free_dict(state.dict);
+    free_regs(&state);
     if (err != NULL) {
         *err = state.error;
     } else {

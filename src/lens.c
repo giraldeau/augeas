@@ -26,6 +26,7 @@
 #include "lens.h"
 #include "memory.h"
 #include "errcode.h"
+#include "internal.h"
 
 /* This enum must be kept in sync with type_offs and ntypes */
 enum lens_type {
@@ -58,6 +59,8 @@ static const char *const tags[] = {
     "concat", "union",
     "subtree", "star", "maybe", "rec"
 };
+
+#define ltag(lens) (tags[lens->tag - L_DEL])
 
 static const struct string digits_string = {
     .ref = REF_MAX, .str = (char *) "[0123456789]+"
@@ -250,6 +253,7 @@ struct value *lns_make_union(struct info *info,
     lens->consumes_value = consumes_value;
     if (! recursive)
         lens->ctype_nullable = ctype_nullable;
+    lens->atype_complete = l1->atype_complete || l2->atype_complete;
     return make_lens_value(lens);
 }
 
@@ -268,14 +272,13 @@ struct value *lns_make_concat(struct info *info,
     if (l1->value && l2->value) {
         return make_exn_value(info, "Multiple stores in concat");
     }
-    if (l1->key && l2->key) {
-        return make_exn_value(info, "Multiple keys/labels in concat");
-    }
 
     lens = make_lens_binop(L_CONCAT, info, l1, l2, regexp_concat_n);
     lens->consumes_value = consumes_value;
     if (! recursive)
         lens->ctype_nullable = ctype_nullable;
+    lens->atype_complete = l1->atype_complete || l2->atype_complete;
+
     return make_lens_value(lens);
 }
 
@@ -335,6 +338,7 @@ struct value *lns_make_subtree(struct info *info, struct lens *l) {
     lens->rec_internal = l->rec_internal;
     if (! l->recursive)
         lens->ctype_nullable = l->ctype_nullable;
+    lens->atype_complete = true;
     return make_lens_value(lens);
 }
 
@@ -349,9 +353,6 @@ struct value *lns_make_star(struct info *info, struct lens *l, int check) {
     if (l->value) {
         return make_exn_value(info, "Multiple stores in iteration");
     }
-    if (l->key) {
-        return make_exn_value(info, "Multiple keys/labels in iteration");
-    }
 
     lens = make_lens_unop(L_STAR, info, l);
     for (int t = 0; t < ntypes; t++) {
@@ -360,6 +361,7 @@ struct value *lns_make_star(struct info *info, struct lens *l, int check) {
     lens->recursive = l->recursive;
     lens->rec_internal = l->rec_internal;
     lens->ctype_nullable = 1;
+    lens->atype_complete = l->atype_complete;
     return make_lens_value(lens);
 }
 
@@ -391,6 +393,7 @@ struct value *lns_make_maybe(struct info *info, struct lens *l, int check) {
     lens->recursive = l->recursive;
     lens->rec_internal = l->rec_internal;
     lens->ctype_nullable = 1;
+    lens->atype_complete = l->atype_complete;
     return make_lens_value(lens);
 }
 
@@ -498,6 +501,7 @@ struct value *lns_make_prim(enum lens_tag tag, struct info *info,
     lens->value = (tag == L_STORE || tag == L_VALUE);
     lens->consumes_value = (tag == L_STORE || tag == L_VALUE);
     lens->atype = regexp_make_empty(info);
+    lens->atype_complete = false;
     /* Set the ctype */
     if (tag == L_DEL || tag == L_STORE || tag == L_KEY) {
         lens->ctype = ref(regexp);
@@ -524,6 +528,8 @@ struct value *lns_make_prim(enum lens_tag tag, struct info *info,
         lens->ktype = make_regexp_literal(info, lens->string->str);
         if (lens->ktype == NULL)
             goto error;
+    } else if (tag == L_STORE || tag == L_VALUE || tag == L_COUNTER || tag == L_DEL) {
+        lens->ktype = regexp_make_empty(info);
     }
 
     /* Set the vtype */
@@ -531,6 +537,9 @@ struct value *lns_make_prim(enum lens_tag tag, struct info *info,
         lens->vtype = restrict_regexp(lens->regexp);
     } else if (tag == L_VALUE) {
         lens->vtype = make_regexp_literal(info, lens->string->str);
+    } else if (tag == L_KEY || tag == L_COUNTER || tag == L_LABEL ||
+               tag == L_SEQ || tag == L_DEL) {
+        lens->vtype = regexp_make_empty(info);
     }
 
     return make_lens_value(lens);
@@ -596,9 +605,25 @@ static struct value *disjoint_check(struct info *info, bool is_get,
 static struct value *typecheck_union(struct info *info,
                                      struct lens *l1, struct lens *l2) {
     struct value *exn = NULL;
+    struct value *ktype_exn = NULL;
+    struct value *vtype_exn = NULL;
+    int atype_complete = l1->atype_complete && l2->atype_complete;
 
     exn = disjoint_check(info, true, l1->ctype, l2->ctype);
-    if (exn == NULL) {
+
+    // FIXME: must adapt disjoint_check to make union.put ambig on ktype and vtype
+    if (exn == NULL && !l1->atype_complete && !l2->atype_complete) {
+        ktype_exn = disjoint_check(info, true, l1->ktype, l2->ktype);
+        vtype_exn = disjoint_check(info, true, l1->vtype, l2->vtype);
+        if (ktype_exn != NULL && vtype_exn != NULL) {
+            exn = ktype_exn;
+            unref(vtype_exn, value);
+        } else {
+            unref(ktype_exn, value);
+            unref(vtype_exn, value);
+        }
+    }
+    if (exn == NULL && l1->atype_complete && l2->atype_complete) {
         exn = disjoint_check(info, false, l1->atype, l2->atype);
     }
     if (exn != NULL) {
@@ -707,10 +732,19 @@ ambig_concat_check(struct info *info, const char *msg,
 static struct value *typecheck_concat(struct info *info,
                                       struct lens *l1, struct lens *l2) {
     struct value *result = NULL;
+    int atype_complete = l1->atype_complete && l2->atype_complete;
 
     result = ambig_concat_check(info, "ambiguous concatenation",
                                 CTYPE, l1, l2);
-    if (result == NULL) {
+    if (result == NULL && !atype_complete) {
+        result = ambig_concat_check(info, "ambigous label concatenation",
+                                    KTYPE, l1, l2);
+    }
+    if (result == NULL && !atype_complete) {
+        result = ambig_concat_check(info, "ambigous value concatenation",
+                                    VTYPE, l1, l2);
+    }
+    if (result == NULL && atype_complete) {
         result = ambig_concat_check(info, "ambiguous tree concatenation",
                                     ATYPE, l1, l2);
     }
@@ -794,6 +828,8 @@ void free_lens(struct lens *lens) {
         return;
     ensure(lens->ref == 0, lens->info);
 
+    if (debugging("lenses"))
+        dump_lens_tree(lens);
     switch (lens->tag) {
     case L_DEL:
         unref(lens->regexp, regexp);
@@ -1885,8 +1921,6 @@ static struct value *typecheck(struct lens *l, int check) {
             exn = typecheck_iter(l->info, l->child);
         if (exn == NULL && l->value)
             exn = make_exn_value(l->info, "Multiple stores in iteration");
-        if (exn == NULL && l->key)
-            exn = make_exn_value(l->info, "Multiple keys/labels in iteration");
         break;
     case L_MAYBE:
         if (check)
@@ -2091,6 +2125,102 @@ struct value *lns_check_rec(struct info *info,
         result = exn_error();
     return result;
 }
+
+#if ENABLE_DEBUG
+void dump_lens_tree(struct lens *lens){
+    static int count = 0;
+    FILE *fp;
+
+    fp = debug_fopen("lens_%02d_%s.dot", count++, ltag(lens));
+    if (fp == NULL)
+        return;
+
+    fprintf(fp, "digraph \"%s\" {\n", "lens");
+    dump_lens(fp, lens);
+    fprintf(fp, "}\n");
+
+    fclose(fp);
+}
+
+void dump_lens(FILE *out, struct lens *lens){
+    int i = 0;
+    struct regexp *re;
+
+    fprintf(out, "\"%p\" [ shape = box, label = \"%s\\n", lens, ltag(lens));
+
+    for (int t=0; t < ntypes; t++) {
+        re = ltype(lens, t);
+        if (re == NULL)
+            continue;
+        fprintf(out, "%s=%s\\n",lens_type_names[t], re->pattern->str);
+    }
+
+    fprintf(out, "atype_complete=%x\\n", lens->atype_complete);
+    fprintf(out, "recursive=%x\\n", lens->recursive);
+    fprintf(out, "rec_internal=%x\\n", lens->rec_internal);
+    fprintf(out, "consumes_value=%x\\n", lens->consumes_value);
+    fprintf(out, "ctype_nullable=%x\\n", lens->ctype_nullable);
+    fprintf(out, "\"];\n");
+    switch(lens->tag){
+    case L_DEL:
+        break;
+    case L_STORE:
+        break;
+    case L_VALUE:
+        break;
+    case L_KEY:
+        break;
+    case L_LABEL:
+        break;
+    case L_SEQ:
+        break;
+    case L_COUNTER:
+        break;
+    case L_CONCAT:
+        for(i = 0; i<lens->nchildren;i++){
+            fprintf(out, "\"%p\" -> \"%p\"\n", lens, lens->children[i]);
+            dump_lens(out, lens->children[i]);
+        }
+        break;
+    case L_UNION:
+        for(i = 0; i<lens->nchildren;i++){
+            fprintf(out, "\"%p\" -> \"%p\"\n", lens, lens->children[i]);
+            dump_lens(out, lens->children[i]);
+        }
+        break;
+    case L_SUBTREE:
+        fprintf(out, "\"%p\" -> \"%p\"\n", lens, lens->child);
+        dump_lens(out, lens->child);
+        break;
+    case L_STAR:
+        fprintf(out, "\"%p\" -> \"%p\"\n", lens, lens->child);
+        dump_lens(out, lens->child);
+
+        break;
+    case L_MAYBE:
+        fprintf(out, "\"%p\" -> \"%p\"\n", lens, lens->child);
+        dump_lens(out, lens->child);
+
+        break;
+    case L_REC:
+        if (lens->rec_internal == 0){
+            fprintf(out, "\"%p\" -> \"%p\"\n", lens, lens->child);
+            dump_lens(out, lens->body);
+        }
+        break;
+    /* uncomment for square lens */
+    /*
+    case L_SQUARE:
+        fprintf(out, "\"%p\" -> \"%p\"\n", lens, lens->child);
+        dump_lens(out, lens->child);
+        break;
+    */
+    default:
+        fprintf(out, "ERROR\n");
+        break;
+    }
+}
+#endif
 
 /*
  * Local variables:

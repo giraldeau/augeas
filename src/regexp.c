@@ -474,6 +474,8 @@ int regexp_matches_empty(struct regexp *r) {
 }
 
 int regexp_nsub(struct regexp *r) {
+    if (r == NULL)
+        return 0;
     if (r->re == NULL)
         if (regexp_compile(r) == -1)
             return -1;
