@@ -1,8 +1,21 @@
-(* BIND dhcp 3 server configuration module for Augeas 
-   Author: Francis Giraldeau <francis.giraldeau@...>
+(* 
+Module: Dhcpd
+  BIND dhcp 3 server configuration module for Augeas 
+  
+Author: Francis Giraldeau <francis.giraldeau@...>
 
-   Reference: man dhcpd.conf
-   Follow dhclient module for tree structure
+About: Reference  
+  Reference: manual of dhcpd.conf and dhcp-eval 
+  Follow dhclient module for tree structure
+
+About: License
+    This file is licensed under the GPL.
+
+About: Lens Usage
+  TODO
+
+About: Configuration files
+  This lens applies to /etc/dhcpd3/dhcpd.conf. See <filter>.
 *)
 
 module Dhcpd = 
@@ -12,7 +25,7 @@ autoload xfm
 (************************************************************************
  *                           USEFUL PRIMITIVES
  *************************************************************************)
-
+let dels (s:string)   = del s s
 let eol               = Util.eol
 let comment           = Util.comment
 let empty             = Util.empty
@@ -21,6 +34,7 @@ let eos               = comment?
 
 (* Define separators *)
 let sep_spc           = del /[ \t]+/ " "
+let sep_osp           = del /[ \t]*/ ""
 let sep_scl           = del /[ \t]*;/ ";"
 let sep_obr           = del /[ \t]*\{/ " {"
 let sep_cbr           = del /[ \t]*\}([ \t]*\n)*/ " }\n"
@@ -36,12 +50,26 @@ let ip                = Rx.ipv4
 
 (* Define fields *)
 
-(* TODO: there could be a " " in the middle of a value ... *)
+(* borrowed from sysconfig.aug *)
+  (* Chars allowed in a bare string *)
+  let bchar = /[^ \t\n\"'\\{\}#,\(\)]|\\\\./
+  let qchar = /["']/  (* " *)
+
+  (* We split the handling of right hand sides into a few cases:
+   *   bare  - strings that contain no spaces, optionally enclosed in
+   *           single or double quotes
+   *   dquot - strings that contain at least one space or apostrophe,
+   *           which must be enclosed in double quotes
+   *   squot - strings that contain an unescaped double quote
+   *)
+  let bare = del qchar? "" . store (bchar+) . del qchar? ""
+  let dquot =
+    del qchar "\"" . store (bchar* . /[ \t']/ . bchar*)+ . del qchar "\""
+  let squot =
+    dels "'" . store ((bchar|/[ \t]/)* . "\"" . (bchar|/[ \t]/)*)+ . dels "'"
+
 let sto_to_spc        = store /[^\\#,;\{\}" \t\n]+|"[^\\#"\n]+"/
 let sto_to_scl        = store /[^ \t;][^;\n=]+[^ \t;]|[^ \t;=]+/
-let rfc_code          = [ key "code" . sep_spc . store word ]
-                      . sep_eq
-                      . [ label "value" . sto_to_scl ]
 
 let sto_number        = store /[0-9][0-9]*/
 
@@ -49,7 +77,9 @@ let sto_number        = store /[0-9][0-9]*/
  *                         NO ARG STATEMENTS
  *************************************************************************)
 
-let stmt_noarg_re     = "authoritative"
+let stmt_noarg_re     =   "authoritative" 
+                        | "primary"
+                        | "secondary"
 
 let stmt_noarg        = [ indent
                         . key stmt_noarg_re 
@@ -64,6 +94,17 @@ let stmt_integer_re   = "default-lease-time"
                       | "max-lease-time"
                       | "min-lease-time"
                       | "lease limit"
+                      | "port"
+                      | /peer[ ]+port/
+                      | "max-response-delay"
+                      | "max-unacked-updates"
+                      | "mclt"
+                      | "split"
+                      | /load[ ]+balance[ ]+max[ ]+seconds/
+                      | "max-lease-misbalance"
+                      | "max-lease-ownership"
+                      | "min-balance"
+                      | "max-balance"
 
 let stmt_integer      = [ indent
                         . key stmt_integer_re
@@ -82,15 +123,27 @@ let stmt_string_re    = "ddns-update-style"
                       | "filename" 
                       | "server-name" 
                       | "fixed-address"
-                      | "failover peer"
+                      | /failover[ ]+peer/
                       | "use-host-decl-names"
+                      | "next-server"
+                      | "address"
+                      | /peer[ ]+address/
+                      | "type"
+                      | "file"
+                      | "algorithm"
+                      | "secret"
+                      | "key"
+                      | "include"
+                      | "hba"
 
-let stmt_string       = [ indent  
+let stmt_string_tpl (l:lens) = [ indent  
                         . key stmt_string_re 
-                        . sep_spc 
-                        . sto_to_spc
+                        . sep_spc
+                        . l
                         . sep_scl
-                        . eos ] 
+                        . eos ]
+                        
+let stmt_string  = stmt_string_tpl bare |stmt_string_tpl squot | stmt_string_tpl dquot   
 
 (************************************************************************
  *                         RANGE STATEMENTS
@@ -121,19 +174,50 @@ let stmt_hardware     = [ indent
 (************************************************************************
  *                         OPTION STATEMENTS
  *************************************************************************)
-(* We do not parse further the option's value, because custom format can
-   be defined at runtime *)
-(* FIXME: handle multi value ---> remove "=" in sto_to_spc *)
+(* The general case is considering options as a list *)
 
-let stmt_option_re    = "option"
+let stmt_option_code  = [ label "label" . store word . sep_spc ]
+                        . [ key "code" . sep_spc . store word ]
+                        . sep_eq
+                        . [ label "type" . store word ] 
 
-let stmt_option       = [ indent 
-                        . key stmt_option_re
+
+let stmt_option_list  = counter "id"
+                        . ([ seq "id" . bare ] | [ seq "id" . dquot ] | [ seq "id" . squot ])
+                        . ( sep_com . ([ seq "id" . bare ] | [ seq "id" . dquot ] | [ seq "id" . squot ]))* 
+
+let stmt_option_basic = [ key word . sep_spc . stmt_option_list ]
+let stmt_option_extra = [ key word . sep_spc . store /true|false/ . sep_spc . stmt_option_list ] 
+
+let stmt_option_body = stmt_option_basic | stmt_option_extra  
+
+let stmt_option1  = [ indent 
+                        . key "option"
                         . sep_spc
-                        (* . [ key word . sep_spc . (sto_to_scl|rfc_code) ] *) 
-                        . [ key word . sep_spc . (sto_to_scl|rfc_code) ] 
+                        . stmt_option_body
                         . sep_scl
                         . eos ]
+
+let stmt_option2  = [ indent 
+                        . dels "option" . label "rfc-code"
+                        . sep_spc
+                        . stmt_option_code
+                        . sep_scl
+                        . eos ]
+
+let stmt_option = stmt_option1 | stmt_option2
+
+(************************************************************************
+ *                         SUBCLASS STATEMENTS
+ *************************************************************************)
+(* this statement is not well documented in the manual dhcpd.conf
+   we support basic use case *)
+
+let stmt_subclass = [ indent . key "subclass" . sep_spc . 
+                      ([ label "name" . dquot ]|
+                       [ label "name" . squot ]|
+                       [ label "name" . bare ]) . sep_spc .
+                       [ label "value" . bare ] . sep_scl . eos ]
 
 (************************************************************************
  *                         ALLOW/DENY STATEMENTS
@@ -171,6 +255,33 @@ let stmt_secu         = [ indent
                         . eos ]
 
 (************************************************************************
+ *                         MATCH STATEMENTS
+ *************************************************************************)
+
+let sto_fct = store (word . /[ \t]*\([^)]*\)/)
+let sto_option = store (/option[ ]+/ . word)
+let sto_com = /[^ \t\n,\(\)][^,\(\)]*[^ \t\n,\(\)]|[^ \t\n,\(\)]+/ | word . /[ \t]*\([^)]*\)/ 
+let fct_re = "substring" | "binary-to-ascii"
+
+let fct_args = [ label "args" . dels "(" . counter "args" . sep_osp .
+                 ([ seq "args" . store sto_com ] . [ seq "args" . sep_com . store sto_com ]+) . 
+                        sep_osp . dels ")" ]
+
+let stmt_match_if = [ dels "if" . sep_spc . store fct_re . sep_osp . label "function" . fct_args ] . 
+                      sep_eq . ([ label "value" . bare ]|[ label "value" . squot ]|[ label "value" . dquot ]) 
+
+let stmt_match_pfv = [ label "function" . store "pick-first-value" . sep_spc .
+                       dels "(" . sep_osp . 
+                       [ counter "opt" . label "args" .
+                         [ seq "opt" . store sto_com ] . 
+                         [ sep_com . seq "opt" . store sto_com ]+ ] . 
+                       dels ")" ]
+                              
+let stmt_match_tpl (l:lens) = [ indent . key "match" . sep_spc . l . sep_scl . eos ]
+
+let stmt_match = stmt_match_tpl (stmt_match_if | stmt_match_pfv )
+
+(************************************************************************
  *                         BLOCK STATEMENTS
  *************************************************************************)
 (* Blocks doesn't support comments at the end of the closing bracket *)
@@ -181,12 +292,15 @@ let stmt_entry        =   stmt_secu
                         | stmt_range
                         | stmt_string
                         | stmt_integer
-                        | stmt_noarg 
+                        | stmt_noarg
+                        | stmt_match
+                        | stmt_subclass
                         | empty
                         | comment
 
 let stmt_block_noarg_re = "pool"
                         | "group"
+                        | "allow-update"
 
 let stmt_block_noarg (body:lens)
                         = [ indent 
@@ -198,6 +312,9 @@ let stmt_block_noarg (body:lens)
 let stmt_block_arg_re = "host"
                       | "class"
                       | "shared-network"
+                      | /failover[ ]+peer/
+                      | "zone"
+                      | "key"
 
 let stmt_block_arg (body:lens)  
                       = [ indent 

@@ -119,12 +119,17 @@ test lns get "authoritative;" = { "authoritative" }
 test lns get "ddns-update-style none;" = { "ddns-update-style" = "none" }
 test lns get "option domain-name \"example.org\";" = 
   { "option"
-    { "domain-name" = "\"example.org\"" }
+    { "domain-name"
+      { "1" = "example.org" }
+    }
   }
 
 test lns get "option domain-name-servers ns1.example.org, ns2.example.org;" =
   { "option"
-    { "domain-name-servers" = "ns1.example.org, ns2.example.org" }
+    { "domain-name-servers"
+      { "1" = "ns1.example.org" }
+      { "2" = "ns2.example.org" }
+    }
   }
 
 test lns get "default-lease-time 600;" = { "default-lease-time" = "600" }
@@ -166,223 +171,231 @@ test lns get " pool {
     }
   }
 
-test lns get "group { host Sentier-Xerox-WC5655-1 {hardware ethernet 00:00:aa:cf:47:e2;
-fixed-address 10.106.64.20;}}" = 
+test lns get "group { host some-host {hardware ethernet 00:00:aa:bb:cc:dd;
+fixed-address 10.1.1.1;}}" = 
   { "group"
-    { "host" = "Sentier-Xerox-WC5655-1"
+    { "host" = "some-host"
       { "hardware"
         { "type" = "ethernet" }
-        { "address" = "00:00:aa:cf:47:e2" }
+        { "address" = "00:00:aa:bb:cc:dd" }
       }
       {  }
-      { "fixed-address" = "10.106.64.20" }
+      { "fixed-address" = "10.1.1.1" }
     }
   }
 
-(* FIXME: client shouldn't have to know if quotes are necessary *) 
 test Dhcpd.stmt_secu get "allow members of \"foo\";" =  { "allow-members-of" = "\"foo\"" }
+test Dhcpd.stmt_option get "option voip-boot-server code 66 = string;" = 
+  { "rfc-code"
+    { "label" = "voip-boot-server" }
+    { "code" = "66" }
+    { "type" = "string" }
+  }
 
-test lns get conf = 
-  {  }
-  { "#comment" = "Sample configuration file for ISC dhcpd for Debian" }
-  {  }
-  { "#comment" = "Attention: If /etc/ltsp/dhcpd.conf exists, that will be used as" }
-  { "#comment" = "configuration file instead of this file." }
-  {  }
-  { "#comment" = "$Id: dhcpd.conf,v 1.1.1.1 2002/05/21 00:07:44 peloy Exp $" }
-  {  }
-  {  }
-  { "#comment" = "The ddns-updates-style parameter controls whether or not the server will" }
-  { "#comment" = "attempt to do a DNS update when a lease is confirmed. We default to the" }
-  { "#comment" = "behavior of the version 2 packages ('none', since DHCP v2 didn't" }
-  { "#comment" = "have support for DDNS.)" }
-  { "ddns-update-style" = "none" }
-  {  }
-  {  }
-  { "#comment" = "option definitions common to all supported networks..." }
-  { "option"
-    { "domain-name" = "\"example.org\"" }
-  }
-  {  }
-  { "option"
-    { "domain-name-servers" = "ns1.example.org, ns2.example.org" }
-  }
-  {  }
-  {  }
-  { "default-lease-time" = "600" }
-  {  }
-  { "max-lease-time" = "7200" }
-  {  }
-  {  }
-  { "#comment" = "If this DHCP server is the official DHCP server for the local" }
-  { "#comment" = "network, the authoritative directive should be uncommented." }
+test Dhcpd.lns get "authoritative;
+log-facility local7;
+ddns-update-style none;
+default-lease-time 21600;
+max-lease-time 43200;
+
+# Additional options for VOIP
+option voip-boot-server code 66 = string;
+option voip-vlan-id code 128 = string;
+" = 
   { "authoritative" }
   {  }
-  {  }
-  { "#comment" = "Use this to send dhcp log messages to a different log file (you also" }
-  { "#comment" = "have to hack syslog.conf to complete the redirection)." }
   { "log-facility" = "local7" }
   {  }
+  { "ddns-update-style" = "none" }
   {  }
-  { "#comment" = "No service will be given on this subnet, but declaring it helps the" }
-  { "#comment" = "DHCP server to understand the network topology." }
+  { "default-lease-time" = "21600" }
   {  }
-  { "subnet"
-    { "network" = "10.152.187.0" }
-    { "netmask" = "255.255.255.0" }
+  { "max-lease-time" = "43200" }
+  {  }
+  {  }
+  { "#comment" = "Additional options for VOIP" }
+  { "rfc-code"
+    { "label" = "voip-boot-server" }
+    { "code" = "66" }
+    { "type" = "string" }
+  }
+  {  }
+  { "rfc-code"
+    { "label" = "voip-vlan-id" }
+    { "code" = "128" }
+    { "type" = "string" }
+  }
+  {  }
+
+
+test Dhcpd.lns get "
+option domain-name-servers 10.1.1.1, 10.11.2.1, 10.1.3.1;
+next-server 10.1.1.1;
+
+failover peer \"redondance01\" {
+         primary;
+         address 10.1.1.1;
+         port 647;
+         peer address 10.1.1.1;
+         peer port 647;
+         max-response-delay 20;
+         max-unacked-updates 10;
+         mclt 3600;         #comment.
+         split 128;         #comment.
+         load balance max seconds 3;
+       }
+" = 
+  {  }
+  { "option"
+    { "domain-name-servers"
+      { "1" = "10.1.1.1" }
+      { "2" = "10.11.2.1" }
+      { "3" = "10.1.3.1" }
+    }
+  }
+  {  }
+  { "next-server" = "10.1.1.1" }
+  {  }
+  {  }
+  { "failover peer" = "\"redondance01\""
+    {  }
+    { "primary" }
+    {  }
+    { "address" = "10.1.1.1" }
+    {  }
+    { "port" = "647" }
+    {  }
+    { "peer address" = "10.1.1.1" }
+    {  }
+    { "peer port" = "647" }
+    {  }
+    { "max-response-delay" = "20" }
+    {  }
+    { "max-unacked-updates" = "10" }
+    {  }
+    { "mclt" = "3600"
+      { "#comment" = "comment." }
+    }
+    { "split" = "128"
+      { "#comment" = "comment." }
+    }
+    { "load balance max seconds" = "3" }
     {  }
   }
-  { "#comment" = "This is a very basic subnet declaration." }
+
+test Dhcpd.lns get "
+option CallManager code 150 = ip-address;
+option slp-directory-agent true 10.1.1.1, 10.2.2.2;
+option slp-service-scope true \"SLP-GLOBAL\";
+option nds-context \"EXAMPLE\";
+option nds-tree-name \"EXAMPLE\";
+" = 
   {  }
-  { "subnet"
-    { "network" = "10.254.239.0" }
-    { "netmask" = "255.255.255.224" }
-    {  }
-    { "range"
-      { "from" = "10.254.239.10" }
-      { "to" = "10.254.239.20" }
-    }
-    {  }
-    { "option"
-      { "routers" = "rtr-239-0-1.example.org, rtr-239-0-2.example.org" }
-    }
-    {  }
+  { "rfc-code"
+    { "label" = "CallManager" }
+    { "code" = "150" }
+    { "type" = "ip-address" }
   }
-  { "#comment" = "This declaration allows BOOTP clients to get dynamic addresses," }
-  { "#comment" = "which we don't really recommend." }
   {  }
-  { "subnet"
-    { "network" = "10.254.239.32" }
-    { "netmask" = "255.255.255.224" }
-    {  }
-    { "range"
-      { "flag" = "dynamic-bootp" }
-      { "from" = "10.254.239.40" }
-      { "to" = "10.254.239.60" }
+  { "option"
+    { "slp-directory-agent" = "true"
+      { "1" = "10.1.1.1" }
+      { "2" = "10.2.2.2" }
     }
-    {  }
-    { "option"
-      { "broadcast-address" = "10.254.239.31" }
-    }
-    {  }
-    { "option"
-      { "routers" = "rtr-239-32-1.example.org" }
-    }
-    {  }
   }
-  { "#comment" = "A slightly different configuration for an internal subnet." }
-  { "subnet"
-    { "network" = "10.5.5.0" }
-    { "netmask" = "255.255.255.224" }
-    {  }
-    { "range"
-      { "from" = "10.5.5.26" }
-      { "to" = "10.5.5.30" }
-    }
-    {  }
-    { "option"
-      { "domain-name-servers" = "ns1.internal.example.org" }
-    }
-    {  }
-    { "option"
-      { "domain-name" = "\"internal.example.org\"" }
-    }
-    {  }
-    { "option"
-      { "routers" = "10.5.5.1" }
-    }
-    {  }
-    { "option"
-      { "broadcast-address" = "10.5.5.31" }
-    }
-    {  }
-    { "default-lease-time" = "600" }
-    {  }
-    { "max-lease-time" = "7200" }
-    {  }
-  }
-  { "#comment" = "Hosts which require special configuration options can be listed in" }
-  { "#comment" = "host statements.   If no address is specified, the address will be" }
-  { "#comment" = "allocated dynamically (if possible), but the host-specific information" }
-  { "#comment" = "will still come from the host declaration." }
   {  }
-  { "host" = "passacaglia"
-    {  }
-    { "hardware"
-      { "type" = "ethernet" }
-      { "address" = "0:0:c0:5d:bd:95" }
+  { "option"
+    { "slp-service-scope" = "true"
+      { "1" = "SLP-GLOBAL" }
     }
-    {  }
-    { "filename" = "\"vmunix.passacaglia\"" }
-    {  }
-    { "server-name" = "\"toccata.fugue.com\"" }
-    {  }
   }
-  { "#comment" = "Fixed IP addresses can also be specified for hosts.   These addresses" }
-  { "#comment" = "should not also be listed as being available for dynamic assignment." }
-  { "#comment" = "Hosts for which fixed IP addresses have been specified can boot using" }
-  { "#comment" = "BOOTP or DHCP.   Hosts for which no fixed address is specified can only" }
-  { "#comment" = "be booted with DHCP, unless there is an address range on the subnet" }
-  { "#comment" = "to which a BOOTP client is connected which has the dynamic-bootp flag" }
-  { "#comment" = "set." }
-  { "host" = "fantasia"
-    {  }
-    { "hardware"
-      { "type" = "ethernet" }
-      { "address" = "08:00:07:26:c0:a5" }
+  {  }
+  { "option"
+    { "nds-context"
+      { "1" = "EXAMPLE" }
     }
-    {  }
-    { "fixed-address" = "fantasia.fugue.com" }
-    {  }
   }
-  { "#comment" = "You can declare a class of clients and then do address allocation" }
-  { "#comment" = "based on that.   The example below shows a case where all clients" }
-  { "#comment" = "in a certain class get addresses on the 10.17.224/24 subnet, and all" }
-  { "#comment" = "other clients get addresses on the 10.0.29/24 subnet." }
   {  }
-  { "#comment" = "class \"foo\" {" }
-  { "#comment" = "match if substring (option vendor-class-identifier, 0, 4) = \"SUNW\";" }
-  { "#comment" = "}" }
+  { "option"
+    { "nds-tree-name"
+      { "1" = "EXAMPLE" }
+    }
+  }
   {  }
-  { "shared-network" = "224-29"
-    {  }
-    { "subnet"
-      { "network" = "10.17.224.0" }
-      { "netmask" = "255.255.255.0" }
-      {  }
-      { "option"
-        { "routers" = "rtr-224.example.org" }
-      }
-      {  }
-    }
-    { "subnet"
-      { "network" = "10.0.29.0" }
-      { "netmask" = "255.255.255.0" }
-      {  }
-      { "option"
-        { "routers" = "rtr-29.example.org" }
-      }
-      {  }
-    }
-    { "pool"
-      {  }
-      { "allow-members-of" = "\"foo\"" }
-      {  }
-      { "range"
-        { "from" = "10.17.224.10" }
-        { "to" = "10.17.224.250" }
-      }
-      {  }
-    }
-    { "pool"
-      {  }
-      { "deny-members-of" = "\"foo\"" }
-      {  }
-      { "range"
-        { "from" = "10.0.29.10" }
-        { "to" = "10.0.29.230" }
-      }
-      {  }
+
+
+test Dhcpd.lns get "option voip-vlan-id \"VLAN=1234;\";" = 
+  { "option"
+    { "voip-vlan-id"
+      { "1" = "VLAN=1234;" }
     }
   }
 
+test Dhcpd.lns get "option domain-name \"x.example.com y.example.com z.example.com\";" = 
+  { "option"
+    { "domain-name"
+      { "1" = "x.example.com y.example.com z.example.com" }
+    }
+  }
+
+test Dhcpd.lns get "include \"/etc/dhcpd.master\";" = 
+  { "include" = "/etc/dhcpd.master" }
+
+test Dhcpd.fct_args get "(option dhcp-client-identifier, 1, 3)" = 
+  { "args"
+    { "1" = "option dhcp-client-identifier" }
+    { "2" = "1" }
+    { "3" = "3" }
+  }
+
+test Dhcpd.stmt_match get "match if substring (option dhcp-client-identifier, 1, 3) = \"RAS\";" = 
+  { "match"
+    { "function" = "substring" 
+      { "args" 
+        { "1" = "option dhcp-client-identifier" }  
+        { "2" = "1" }
+        { "3" = "3" }
+      }
+    }
+    { "value" = "RAS" }
+  }
+
+test Dhcpd.lns get "match pick-first-value (option dhcp-client-identifier, hardware);" = 
+  { "match"
+    { "function" = "pick-first-value"
+      { "args"  
+        { "1" = "option dhcp-client-identifier" }
+        { "2" = "hardware"  }
+      }
+    }
+  }
+
+test Dhcpd.fct_args get "(16, 32, \"\", substring(hardware, 0, 4))" = 
+  { "args"
+    { "1" = "16" }
+    { "2" = "32" }
+    { "3" = "\"\"" }
+    { "4" = "substring(hardware, 0, 4)" }
+  }
+
+test Dhcpd.stmt_match get "match if binary-to-ascii(16, 32, \"\", substring(hardware, 0, 4)) = \"1525400\";" = 
+  { "match"
+    { "function" = "binary-to-ascii"
+      { "args"
+        { "1" = "16" }
+        { "2" = "32" }
+        { "3" = "\"\"" }
+        { "4" = "substring(hardware, 0, 4)" }
+      }
+    }
+    { "value" = "1525400" }
+  }
+
+test Dhcpd.lns get "subclass \"allocation-class-1\" 1:8:0:2b:4c:39:ad;" = 
+  { "subclass" 
+    { "name" = "allocation-class-1" }
+    { "value" = "1:8:0:2b:4c:39:ad" }
+  }
+
+(* overall test *)
+test Dhcpd.lns put conf after rm "/x" = conf 
