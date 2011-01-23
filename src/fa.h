@@ -144,6 +144,7 @@ void fa_free(struct fa *fa);
 
 /* Print FA to OUT as a graphviz dot file */
 void fa_dot(FILE *out, struct fa *fa);
+void fa_dot_debug(struct fa *fa, const char *tag); 
 
 /* Return a finite automaton that accepts the overlap of the languages of
  * FA1 and FA2. The overlap of two languages is the set of strings that can

@@ -265,8 +265,7 @@ static int totalize(struct fa *fa);
  */
 #define FA_DOT_DIR "FA_DOT_DIR"
 
-ATTRIBUTE_UNUSED
-static void fa_dot_debug(struct fa *fa, const char *tag) {
+void fa_dot_debug(struct fa *fa, const char *tag) {
     const char *dot_dir;
     static int count = 0;
     int r;
@@ -2822,6 +2821,12 @@ int fa_ambig_example(struct fa *fa1, struct fa *fa2,
     if (is_splittable(fa1, fa2)){
     	printf("is_splittable\n");
         return 0;
+    }
+
+    char *fa_min = NULL;
+    if ((fa_min= getenv("FA_MIN")) != NULL){
+    	fa_minimize(fa1);
+    	fa_minimize(fa2);
     }
 
 #define Xs "\001"

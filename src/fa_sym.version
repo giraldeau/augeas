@@ -15,6 +15,7 @@ FA_1.0.0 {
       fa_equals;
       fa_free;
       fa_dot;
+      fa_dot_debug;
       fa_overlap;
       fa_example;
       fa_ambig_example;
