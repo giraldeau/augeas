@@ -150,7 +150,7 @@ int aug_set(augeas *aug, const char *path, const char *value);
  */
 int aug_setm(augeas *aug, const char *base, const char *sub, const char *value);
 
-/* Function: aug_info
+/* Function: aug_span
  *
  * Get the information about the node associated with PATH. If the node is
  * associated with a file, the filename, label and value start and end positions
@@ -163,7 +163,7 @@ int aug_setm(augeas *aug, const char *base, const char *sub, const char *value);
  * -1 on error
  */
 
-int aug_info(augeas *aug, const char *path, char **filename,
+int aug_span(augeas *aug, const char *path, char **filename,
         uint *label_start, uint *label_end, uint *value_start, uint *value_end);
 
 /* Function: aug_insert

@@ -661,7 +661,7 @@ static const struct command_def cmd_clearm_def = {
     "BASE will be modified."
 };
 
-static void cmd_info(struct command *cmd) {
+static void cmd_span(struct command *cmd) {
     const char *path = arg_value(cmd, "path");
     int r;
     uint label_start, label_end, value_start, value_end;
@@ -683,7 +683,7 @@ static void cmd_info(struct command *cmd) {
         printf("Error: option %s must be %s or %s\n", AUGEAS_INDEX_OPTION, AUG_ENABLE, AUG_DISABLE);
         return;
     }
-    r = aug_info(aug, path, &filename, &label_start, &label_end, &value_start, &value_end);
+    r = aug_span(aug, path, &filename, &label_start, &label_end, &value_start, &value_end);
     err_check(cmd);
     if (r == -1){
         printf ("Failed\n");
@@ -692,16 +692,16 @@ static void cmd_info(struct command *cmd) {
     printf("%s label=(%i:%i) value=(%i:%i)\n", filename, label_start, label_end, value_start, value_end);
 }
 
-static const struct command_opt_def cmd_info_opts[] = {
+static const struct command_opt_def cmd_span_opts[] = {
     { .type = CMD_PATH, .name = "path", .optional = false,
       .help = "node path" },
     CMD_OPT_DEF_LAST
 };
 
-static const struct command_def cmd_info_def = {
-    .name = "info",
-    .opts = cmd_info_opts,
-    .handler = cmd_info,
+static const struct command_def cmd_span_def = {
+    .name = "span",
+    .opts = cmd_span_opts,
+    .handler = cmd_span,
     .synopsis = "get the filename, label and value position in the text of this node",
     .help = "get the filename, label and value position in the text of this node"
 };
@@ -1016,7 +1016,7 @@ static const struct command_def const *commands[] = {
     &cmd_set_def,
     &cmd_setm_def,
     &cmd_clearm_def,
-    &cmd_info_def,
+    &cmd_span_def,
     &cmd_help_def,
     &cmd_def_last
 };

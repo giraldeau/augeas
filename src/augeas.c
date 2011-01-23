@@ -964,7 +964,7 @@ int aug_rm(struct augeas *aug, const char *path) {
     return -1;
 }
 
-int aug_info(struct augeas *aug, const char *path, char **filename,
+int aug_span(struct augeas *aug, const char *path, char **filename,
         uint *label_start, uint *label_end, uint *value_start, uint *value_end) {
     struct pathx *p = NULL;
     int result;

@@ -244,7 +244,7 @@ static void testNodeInfo(CuTest *tc) {
     CuAssertRetSuccess(tc, r);
 
     /* test normal behavior */
-    r = aug_info(aug, expr1, &filename_ac, &label_start, &label_end, &value_start, &value_end);
+    r = aug_span(aug, expr1, &filename_ac, &label_start, &label_end, &value_start, &value_end);
     CuAssertRetSuccess(tc, r);
     CuAssertIntEquals(tc, 0, label_start);
     CuAssertIntEquals(tc, 0, label_end);
@@ -256,7 +256,7 @@ static void testNodeInfo(CuTest *tc) {
     reset_indexes(&label_start, &label_end, &value_start, &value_end);
 
     /* test a valid path not associated with a file */
-    r = aug_info(aug, expr2, &filename_ac, &label_start, &label_end, &value_start, &value_end);
+    r = aug_span(aug, expr2, &filename_ac, &label_start, &label_end, &value_start, &value_end);
     CuAssertIntEquals(tc, -1, r);
     CuAssertIntEquals(tc, 0, label_start);
     CuAssertIntEquals(tc, 0, label_end);
@@ -266,7 +266,7 @@ static void testNodeInfo(CuTest *tc) {
     reset_indexes(&label_start, &label_end, &value_start, &value_end);
 
     /* test not valid path */
-    r = aug_info(aug, expr3, &filename_ac, &label_start, &label_end, &value_start, &value_end);
+    r = aug_span(aug, expr3, &filename_ac, &label_start, &label_end, &value_start, &value_end);
     CuAssertIntEquals(tc, -1, r);
     CuAssertIntEquals(tc, 0, label_start);
     CuAssertIntEquals(tc, 0, label_end);
@@ -280,7 +280,7 @@ static void testNodeInfo(CuTest *tc) {
     aug = aug_init(root, loadpath, AUG_NO_STDINC|AUG_NO_LOAD|AUG_NO_NODE_INDEX);
     r = aug_load(aug);
     CuAssertRetSuccess(tc, r);
-    r = aug_info(aug, expr1, &filename_ac, &label_start, &label_end, &value_start, &value_end);
+    r = aug_span(aug, expr1, &filename_ac, &label_start, &label_end, &value_start, &value_end);
     CuAssertIntEquals(tc, -1, r);
     reset_indexes(&label_start, &label_end, &value_start, &value_end);
 
