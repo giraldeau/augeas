@@ -389,6 +389,7 @@ static struct tree *get_del(struct lens *lens, struct state *state) {
     if (lens->string == NULL) {
         state->square = token(state);
     }
+    update_span(state->node_info, REG_START(state), REG_END(state));
     return NULL;
 }
 
@@ -419,6 +420,7 @@ static struct tree *get_store(struct lens *lens, struct state *state) {
         if (state->node_info) {
             state->node_info->value_start = REG_START(state);
             state->node_info->value_end = REG_END(state);
+            update_span(state->node_info, REG_START(state), REG_END(state));
         }
     }
     return tree;
@@ -452,6 +454,7 @@ static struct tree *get_key(struct lens *lens, struct state *state) {
             state->node_info->label_start = REG_START(state);
             state->node_info->label_end = REG_END(state);
             //printf("key=%s,key_start=%i,key_end=%i\n", state->key, state->key_start, state->key_end);
+            update_span(state->node_info, REG_START(state), REG_END(state));
         }
     }
     return NULL;
@@ -686,6 +689,10 @@ static struct tree *get_subtree(struct lens *lens, struct state *state) {
 
     tree = make_tree(state->key, state->value, NULL, children);
     tree->node_info = state->node_info;
+
+    if (state->node_info != NULL) {
+        update_span(node_info, state->node_info->span_start, state->node_info->span_end);
+    }
 
     state->key = key;
     state->value = value;

@@ -119,6 +119,7 @@ struct node_info *make_node_info(struct info *info) {
         unref(node_info, node_info);
     }
     node_info->filename = ref(info->filename);
+    node_info->is_first_update = true;
     return node_info;
 }
 
@@ -128,6 +129,34 @@ void free_node_info(struct node_info *node_info) {
     assert(node_info->ref == 0);
     unref(node_info->filename, string);
     free(node_info);
+}
+
+void print_node_info(struct node_info *n) {
+    if (n == NULL)
+        return;
+    printf("%s ifu=%i label=(%i:%i) value=(%i:%i) span=(%i,%i)\n", n->filename->str, n->is_first_update,
+           n->label_start, n->label_end, n->value_start, n->value_end, n->span_start, n->span_end);
+}
+
+void update_span(struct node_info *node_info, int x, int y) {
+    if (node_info == NULL)
+        return;
+    //print_node_info(node_info);
+    //printf("update x=%i y=%i\n", x, y);
+    if (node_info->is_first_update) {
+        node_info->span_start = x;
+        node_info->span_end = y;
+        node_info->is_first_update = false;
+    }
+    if (node_info->label_start > x || node_info->value_start > x ||
+            node_info->span_start > x) {
+        node_info->span_start = x;
+    }
+    if (node_info->label_end < y || node_info->value_end < y ||
+                node_info->span_end < y) {
+            node_info->span_end = y;
+    }
+    //print_node_info(node_info);
 }
 
 /*

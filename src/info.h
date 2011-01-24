@@ -62,6 +62,7 @@ struct node_info {
     uint value_end;
     uint span_start;
     uint span_end;
+    char is_first_update;
     ref_t ref;
 };
 
@@ -74,7 +75,8 @@ void free_info(struct info *info);
 
 struct node_info *make_node_info(struct info *info);
 void free_node_info(struct node_info *node_info);
-
+void update_span(struct node_info *node_info, int x, int y);
+void print_node_info(struct node_info *node_info);
 #endif
 
 

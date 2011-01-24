@@ -979,12 +979,18 @@ int aug_span(struct augeas *aug, const char *path, char **filename,
         goto error;
     }
 
-    *label_start = tree->node_info->label_start;
-    *label_end   = tree->node_info->label_end;
-    *value_start = tree->node_info->value_start;
-    *value_end   = tree->node_info->value_end;
-    *span_start  = tree->node_info->span_start;
-    *span_end    = tree->node_info->span_end;
+    if (label_start != NULL)
+        *label_start = tree->node_info->label_start;
+    if (label_end != NULL)
+        *label_end   = tree->node_info->label_end;
+    if (value_start != NULL)
+        *value_start = tree->node_info->value_start;
+    if (value_end != NULL)
+        *value_end   = tree->node_info->value_end;
+    if (span_start != NULL)
+        *span_start  = tree->node_info->span_start;
+    if (span_end != NULL)
+        *span_end    = tree->node_info->span_end;
 
     /* We are safer here, make sure we have a filename */
     if (tree->node_info->filename == NULL || tree->node_info->filename->str == NULL) {
