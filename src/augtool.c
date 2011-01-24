@@ -664,7 +664,7 @@ static const struct command_def cmd_clearm_def = {
 static void cmd_span(struct command *cmd) {
     const char *path = arg_value(cmd, "path");
     int r;
-    uint label_start, label_end, value_start, value_end;
+    uint label_start, label_end, value_start, value_end, span_start, span_end;
     char *filename;
     const char *option;
     // FIXME: add check to see if AUG_NO_NODE_INDEX is set
@@ -680,16 +680,19 @@ static void cmd_span(struct command *cmd) {
         printf("load\n");
         return;
     } else if (strcmp(AUG_ENABLE, option) != 0) {
-        printf("Error: option %s must be %s or %s\n", AUGEAS_INDEX_OPTION, AUG_ENABLE, AUG_DISABLE);
+        printf("Error: option %s must be %s or %s\n", AUGEAS_INDEX_OPTION,
+               AUG_ENABLE, AUG_DISABLE);
         return;
     }
-    r = aug_span(aug, path, &filename, &label_start, &label_end, &value_start, &value_end);
+    r = aug_span(aug, path, &filename, &label_start, &label_end, &value_start, 
+                 &value_end, &span_start, &span_end);
     err_check(cmd);
     if (r == -1){
         printf ("Failed\n");
         return;
     }
-    printf("%s label=(%i:%i) value=(%i:%i)\n", filename, label_start, label_end, value_start, value_end);
+    printf("%s label=(%i:%i) value=(%i:%i) span=(%i,%i)\n", filename, 
+           label_start, label_end, value_start, value_end, span_start, span_end);
 }
 
 static const struct command_opt_def cmd_span_opts[] = {

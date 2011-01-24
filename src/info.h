@@ -60,6 +60,8 @@ struct node_info {
     uint label_end;
     uint value_start;
     uint value_end;
+    uint span_start;
+    uint span_end;
     ref_t ref;
 };
 

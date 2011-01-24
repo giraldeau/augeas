@@ -965,7 +965,8 @@ int aug_rm(struct augeas *aug, const char *path) {
 }
 
 int aug_span(struct augeas *aug, const char *path, char **filename,
-        uint *label_start, uint *label_end, uint *value_start, uint *value_end) {
+        uint *label_start, uint *label_end, uint *value_start, uint *value_end,
+        uint *span_start, uint *span_end) {
     struct pathx *p = NULL;
     int result;
     struct tree *tree = NULL;
@@ -982,6 +983,8 @@ int aug_span(struct augeas *aug, const char *path, char **filename,
     *label_end   = tree->node_info->label_end;
     *value_start = tree->node_info->value_start;
     *value_end   = tree->node_info->value_end;
+    *span_start  = tree->node_info->span_start;
+    *span_end    = tree->node_info->span_end;
 
     /* We are safer here, make sure we have a filename */
     if (tree->node_info->filename == NULL || tree->node_info->filename->str == NULL) {

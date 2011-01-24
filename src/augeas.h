@@ -164,7 +164,8 @@ int aug_setm(augeas *aug, const char *base, const char *sub, const char *value);
  */
 
 int aug_span(augeas *aug, const char *path, char **filename,
-        uint *label_start, uint *label_end, uint *value_start, uint *value_end);
+        uint *label_start, uint *label_end, uint *value_start, uint *value_end,
+        uint *span_start, uint *span_end);
 
 /* Function: aug_insert
  *

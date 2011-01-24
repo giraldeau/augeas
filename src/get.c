@@ -419,7 +419,6 @@ static struct tree *get_store(struct lens *lens, struct state *state) {
         if (state->node_info) {
             state->node_info->value_start = REG_START(state);
             state->node_info->value_end = REG_END(state);
-            //printf("value=%s,value_start=%i,value_end=%i\n", state->value, state->value_start, state->value_end);
         }
     }
     return tree;
