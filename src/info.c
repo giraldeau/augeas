@@ -141,22 +141,16 @@ void print_node_info(struct node_info *n) {
 void update_span(struct node_info *node_info, int x, int y) {
     if (node_info == NULL)
         return;
-    //print_node_info(node_info);
-    //printf("update x=%i y=%i\n", x, y);
     if (node_info->is_first_update) {
         node_info->span_start = x;
         node_info->span_end = y;
         node_info->is_first_update = false;
-    }
-    if (node_info->label_start > x || node_info->value_start > x ||
-            node_info->span_start > x) {
-        node_info->span_start = x;
-    }
-    if (node_info->label_end < y || node_info->value_end < y ||
-                node_info->span_end < y) {
+    } else {
+        if (node_info->span_start > x)
+            node_info->span_start = x;
+        if (node_info->span_end < y)
             node_info->span_end = y;
     }
-    //print_node_info(node_info);
 }
 
 /*

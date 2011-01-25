@@ -74,6 +74,7 @@ struct frame {
     struct lens     *lens;
     char            *key;
     char            *square;
+    struct node_info *node_info;
     union {
         struct { /* MGET */
             char        *value;
@@ -881,8 +882,12 @@ static void visit_enter(struct lens *lens,
         struct frame *f = push_frame(rec_state, lens);
         f->key = state->key;
         f->value = state->value;
+        f->node_info = state->node_info;
         state->key = NULL;
         state->value = NULL;
+        if (!(state->info->flags & AUG_NO_NODE_INDEX)) {
+            state->node_info = make_node_info(state->info);
+        }
     }
 }
 
@@ -974,11 +979,13 @@ static void visit_exit(struct lens *lens,
             struct tree *tree;
             // FIXME: tree may leak if pop_frame ensure0 fail
             tree = make_tree(top->key, top->value, NULL, top->tree);
+            tree->node_info = state->node_info;
             ERR_NOMEM(tree == NULL, lens->info);
             top = pop_frame(rec_state);
             ensure(lens == top->lens, state->info);
             state->key = top->key;
             state->value = top->value;
+            state->node_info = top->node_info;
             pop_frame(rec_state);
             top = push_frame(rec_state, lens);
             top->tree = tree;
