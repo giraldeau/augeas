@@ -246,7 +246,7 @@ struct span_test_def {
 static const struct span_test_def span_test[] = {
     { .expr = "/files/etc/hosts/1/ipaddr", .f = "hosts", .ret = 0, .ls = 0, .le = 0, .vs = 104, .ve = 113, .ss = 104, .se = 113 },
     { .expr = "/files/etc/hosts/1", .f = "hosts", .ret = 0, .ls = 0, .le = 0, .vs = 0, .ve = 0, .ss = 104, .se = 171 },
-    { .expr = "/files/etc/hosts/#comment[1]", .f = "hosts", .ret = 0, .ls = 0, .le = 0, .vs = 2, .ve = 55, .ss = 0, .se = 56 },
+    { .expr = "/files/etc/hosts/#comment[2]", .f = "hosts", .ret = 0, .ls = 0, .le = 0, .vs = 58, .ve = 103, .ss = 56, .se = 104 },
     { .expr = "/files", .f = NULL, .ret = -1, .ls = 0, .le = 0, .vs = 0, .ve = 0, .ss = 0, .se = 0 },
     { .expr = "/random", .f = NULL, .ret = -1, .ls = 0, .le = 0, .vs = 0, .ve = 0, .ss = 0, .se = 0 },
     SPAN_TEST_DEF_LAST
@@ -258,6 +258,7 @@ static void testNodeInfo(CuTest *tc) {
     struct augeas *aug;
     struct span_test_def test;
     char *fbase;
+    char msg[20];
     static const char *const expr = "/files/etc/hosts/1/ipaddr";
 
     char *filename_ac;
@@ -268,18 +269,18 @@ static void testNodeInfo(CuTest *tc) {
     CuAssertRetSuccess(tc, ret);
 
     while(span_test[i].expr != NULL) {
-        //printf("span_test %d\n", i);
+        sprintf(msg, "span_test %d\n", i);
         test = span_test[i];
         i++;
         ret = aug_span(aug, test.expr, &filename_ac, &label_start, &label_end,
                      &value_start, &value_end, &span_start, &span_end);
-        CuAssertIntEquals(tc, test.ret, ret);
-        CuAssertIntEquals(tc, test.ls, label_start);
-        CuAssertIntEquals(tc, test.le, label_end);
-        CuAssertIntEquals(tc, test.vs, value_start);
-        CuAssertIntEquals(tc, test.ve, value_end);
-        CuAssertIntEquals(tc, test.ss, span_start);
-        CuAssertIntEquals(tc, test.se, span_end);
+        CuAssertIntEquals_Msg(tc, msg, test.ret, ret);
+        CuAssertIntEquals_Msg(tc, msg, test.ls, label_start);
+        CuAssertIntEquals_Msg(tc, msg, test.le, label_end);
+        CuAssertIntEquals_Msg(tc, msg, test.vs, value_start);
+        CuAssertIntEquals_Msg(tc, msg, test.ve, value_end);
+        CuAssertIntEquals_Msg(tc, msg, test.ss, span_start);
+        CuAssertIntEquals_Msg(tc, msg, test.se, span_end);
         if (filename_ac != NULL) {
             fbase = basename(filename_ac);
         } else {
