@@ -246,7 +246,9 @@ struct span_test_def {
 static const struct span_test_def span_test[] = {
     { .expr = "/files/etc/hosts/1/ipaddr", .f = "hosts", .ret = 0, .ls = 0, .le = 0, .vs = 104, .ve = 113, .ss = 104, .se = 113 },
     { .expr = "/files/etc/hosts/1", .f = "hosts", .ret = 0, .ls = 0, .le = 0, .vs = 0, .ve = 0, .ss = 104, .se = 171 },
+    { .expr = "/files/etc/hosts/*[last()]", .f = "hosts", .ret = 0, .ls = 0, .le = 0, .vs = 0, .ve = 0, .ss = 266, .se = 309 },
     { .expr = "/files/etc/hosts/#comment[2]", .f = "hosts", .ret = 0, .ls = 0, .le = 0, .vs = 58, .ve = 103, .ss = 56, .se = 104 },
+    { .expr = "/files/etc/hosts", .f = "hosts", .ret = 0, .ls = 0, .le = 0, .vs = 0, .ve = 0, .ss = 0, .se = 309 },
     { .expr = "/files", .f = NULL, .ret = -1, .ls = 0, .le = 0, .vs = 0, .ve = 0, .ss = 0, .se = 0 },
     { .expr = "/random", .f = NULL, .ret = -1, .ls = 0, .le = 0, .vs = 0, .ve = 0, .ss = 0, .se = 0 },
     SPAN_TEST_DEF_LAST

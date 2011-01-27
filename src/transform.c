@@ -484,7 +484,8 @@ static int load_file(struct augeas *aug, struct lens *lens,
     struct tree *tree = NULL;
     char *path = NULL;
     struct lns_error *err = NULL;
-    int result = -1, r;
+    struct node_info *node_info = NULL;
+    int result = -1, r, text_len = 0;
 
     path = file_name_path(aug, filename);
     ERR_NOMEM(path == NULL, aug);
@@ -498,7 +499,8 @@ static int load_file(struct augeas *aug, struct lens *lens,
         err_status = "read_failed";
         goto done;
     }
-    text = append_newline(text, strlen(text));
+    text_len = strlen(text);
+    text = append_newline(text, text_len);
 
     struct info *info;
     make_ref(info);
@@ -507,6 +509,10 @@ static int load_file(struct augeas *aug, struct lens *lens,
     info->error = aug->error;
     info->flags = aug->flags;
     info->first_line = 1;
+
+    if (!(aug->flags & AUG_NO_NODE_INDEX)) {
+        node_info = make_node_info(info);
+    }
 
     tree = lns_get(info, lens, text, &err);
 
@@ -518,6 +524,13 @@ static int load_file(struct augeas *aug, struct lens *lens,
     }
 
     tree_replace(aug, path, tree);
+
+    /* parent node span entire text length */
+    if (node_info != NULL) {
+        tree->parent->node_info = node_info;
+        tree->parent->node_info->span_end = text_len;
+    }
+
     tree = NULL;
 
     result = 0;
