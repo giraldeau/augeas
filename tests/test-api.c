@@ -266,7 +266,7 @@ static void testNodeInfo(CuTest *tc) {
     char *filename_ac;
     uint label_start, label_end, value_start, value_end, span_start, span_end;
 
-    aug = aug_init(root, loadpath, AUG_NO_STDINC|AUG_NO_LOAD);
+    aug = aug_init(root, loadpath, AUG_NO_STDINC|AUG_NO_LOAD|AUG_ENABLE_SPAN);
     ret = aug_load(aug);
     CuAssertRetSuccess(tc, ret);
 
@@ -297,7 +297,7 @@ static void testNodeInfo(CuTest *tc) {
 
     /* test that nodes info are not loaded */
     aug_close(aug);
-    aug = aug_init(root, loadpath, AUG_NO_STDINC|AUG_NO_LOAD|AUG_NO_NODE_INDEX);
+    aug = aug_init(root, loadpath, AUG_NO_STDINC|AUG_NO_LOAD);
     ret = aug_load(aug);
     CuAssertRetSuccess(tc, ret);
     ret = aug_span(aug, expr, &filename_ac, &label_start, &label_end,

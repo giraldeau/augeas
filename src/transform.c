@@ -510,7 +510,7 @@ static int load_file(struct augeas *aug, struct lens *lens,
     info->flags = aug->flags;
     info->first_line = 1;
 
-    if (!(aug->flags & AUG_NO_NODE_INDEX)) {
+    if (aug->flags & AUG_ENABLE_SPAN) {
         node_info = make_node_info(info);
     }
 

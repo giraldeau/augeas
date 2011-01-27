@@ -92,7 +92,7 @@
 
 /* Define: AUGEAS_INDEX_OPTION
  * Enable or disable node indexes */
-#define AUGEAS_INDEX_OPTION AUGEAS_META_TREE "/index"
+#define AUGEAS_INDEX_OPTION AUGEAS_META_TREE "/span"
 
 /* Define: AUGEAS_LENS_ENV
  * Name of env var that contains list of paths to search for additional

@@ -422,10 +422,10 @@ struct augeas *aug_init(const char *root, const char *loadpath,
         aug_set(result, AUGEAS_META_SAVE_MODE, AUG_SAVE_OVERWRITE_TEXT);
     }
 
-    if (flags & AUG_NO_NODE_INDEX) {
-        aug_set(result, AUGEAS_INDEX_OPTION, AUG_DISABLE);
-    } else {
+    if (flags & AUG_ENABLE_SPAN) {
         aug_set(result, AUGEAS_INDEX_OPTION, AUG_ENABLE);
+    } else {
+        aug_set(result, AUGEAS_INDEX_OPTION, AUG_DISABLE);
     }
 
     /* Make sure we always have /files and /augeas/variables */
@@ -538,10 +538,10 @@ int aug_load(struct augeas *aug) {
 
     /* update flags according to option value */
     if (aug_get(aug, AUGEAS_INDEX_OPTION, &option) == 1) {
-        if (strcmp(option, AUG_ENABLE) == 0) {
-            aug->flags &= ~AUG_NO_NODE_INDEX;
-        } else if (strcmp(option, AUG_DISABLE) == 0) {
-            aug->flags |= AUG_NO_NODE_INDEX;
+        if (strcmp(option, AUG_DISABLE) == 0) {
+            aug->flags &= ~AUG_ENABLE_SPAN;
+        } else if (strcmp(option, AUG_ENABLE) == 0) {
+            aug->flags |= AUG_ENABLE_SPAN;
         }
     }
 

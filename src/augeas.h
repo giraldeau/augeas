@@ -48,7 +48,7 @@ enum aug_flags {
                                      what would have changed */
     AUG_NO_LOAD      = (1 << 5),  /* Do not load the tree from AUG_INIT */
     AUG_NO_MODL_AUTOLOAD = (1 << 6),
-    AUG_NO_NODE_INDEX    = (1 << 7) /* Do not keep track of node indexes */
+    AUG_ENABLE_SPAN    = (1 << 7) /* Do not keep track of node indexes */
 };
 
 /* Function: aug_init
@@ -315,7 +315,8 @@ typedef enum {
     AUG_EMMATCH,        /* Too many matches for path expression */
     AUG_ESYNTAX,        /* Syntax error in lens file */
     AUG_ENOLENS,        /* Lens lookup failed */
-    AUG_EMXFM           /* Multiple transforms */
+    AUG_EMXFM,          /* Multiple transforms */
+    AUG_ENOSPAN         /* No span for this node */
 } aug_errcode_t;
 
 /* Return the error code from the last API call */

@@ -667,14 +667,14 @@ static void cmd_span(struct command *cmd) {
     uint label_start, label_end, value_start, value_end, span_start, span_end;
     char *filename;
     const char *option;
-    // FIXME: add check to see if AUG_NO_NODE_INDEX is set
+    // FIXME: add check to see if AUG_ENABLE_SPAN is set
 
     if (aug_get(aug, AUGEAS_INDEX_OPTION, &option) != 1) {
-        printf("Error: option /augeas/index not found\n");
+        printf("Error: option " AUGEAS_INDEX_OPTION " not found\n");
         return;
     }
     if (strcmp(AUG_DISABLE, option) == 0) {
-        printf("Indexes are not enabled. To enable, run commands:\n");
+        printf("Span is not enabled. To enable, run commands:\n");
         printf("set %s %s\n", AUGEAS_INDEX_OPTION, AUG_ENABLE);
         printf("rm %s\n", AUGEAS_FILES_TREE);
         printf("load\n");
@@ -1097,7 +1097,7 @@ static void parse_opts(int argc, char **argv) {
         VAL_NO_LOAD = VAL_NO_STDINC + 1,
         VAL_NO_AUTOLOAD = VAL_NO_LOAD + 1,
         VAL_VERSION = VAL_NO_AUTOLOAD + 1,
-        VAL_NO_INDEX = VAL_VERSION + 1
+        VAL_SPAN = VAL_VERSION + 1
     };
     struct option options[] = {
         { "help",      0, 0, 'h' },
@@ -1112,7 +1112,7 @@ static void parse_opts(int argc, char **argv) {
         { "nostdinc",  0, 0, VAL_NO_STDINC },
         { "noload",    0, 0, VAL_NO_LOAD },
         { "noautoload", 0, 0, VAL_NO_AUTOLOAD },
-        { "noindex", 0, 0, VAL_NO_INDEX },
+        { "span",      0, 0, VAL_SPAN },
         { "version",   0, 0, VAL_VERSION },
         { 0, 0, 0, 0}
     };
@@ -1160,8 +1160,8 @@ static void parse_opts(int argc, char **argv) {
             flags |= AUG_NO_MODL_AUTOLOAD;
             print_version = true;
             break;
-        case VAL_NO_INDEX:
-            flags |= AUG_NO_NODE_INDEX;
+        case VAL_SPAN:
+            flags |= AUG_ENABLE_SPAN;
             break;
         default:
             usage();

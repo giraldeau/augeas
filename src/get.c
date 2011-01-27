@@ -683,7 +683,7 @@ static struct tree *get_subtree(struct lens *lens, struct state *state) {
 
     state->key = NULL;
     state->value = NULL;
-    if (!(state->info->flags & AUG_NO_NODE_INDEX))
+    if (state->info->flags & AUG_ENABLE_SPAN)
         state->node_info = make_node_info(state->info);
 
     children = get_lens(lens->child, state);
@@ -885,7 +885,7 @@ static void visit_enter(struct lens *lens,
         f->node_info = state->node_info;
         state->key = NULL;
         state->value = NULL;
-        if (!(state->info->flags & AUG_NO_NODE_INDEX)) {
+        if (state->info->flags & AUG_ENABLE_SPAN) {
             state->node_info = make_node_info(state->info);
         }
     }
