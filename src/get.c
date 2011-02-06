@@ -45,7 +45,7 @@ struct seq {
 
 struct state {
     struct info      *info;
-    struct node_info *node_info;
+    struct span      *span;
     const char       *text;
     struct seq       *seqs;
     char             *key;
@@ -74,7 +74,7 @@ struct frame {
     struct lens     *lens;
     char            *key;
     char            *square;
-    struct node_info *node_info;
+    struct span     *span;
     union {
         struct { /* MGET */
             char        *value;
@@ -390,7 +390,7 @@ static struct tree *get_del(struct lens *lens, struct state *state) {
     if (lens->string == NULL) {
         state->square = token(state);
     }
-    update_span(state->node_info, REG_START(state), REG_END(state));
+    update_span(state->span, REG_START(state), REG_END(state));
     return NULL;
 }
 
@@ -418,10 +418,10 @@ static struct tree *get_store(struct lens *lens, struct state *state) {
         no_match_error(state, lens);
     else {
         state->value = token(state);
-        if (state->node_info) {
-            state->node_info->value_start = REG_START(state);
-            state->node_info->value_end = REG_END(state);
-            update_span(state->node_info, REG_START(state), REG_END(state));
+        if (state->span) {
+            state->span->value_start = REG_START(state);
+            state->span->value_end = REG_END(state);
+            update_span(state->span, REG_START(state), REG_END(state));
         }
     }
     return tree;
@@ -451,11 +451,11 @@ static struct tree *get_key(struct lens *lens, struct state *state) {
         no_match_error(state, lens);
     else {
         state->key = token(state);
-        if (state->node_info) {
-            state->node_info->label_start = REG_START(state);
-            state->node_info->label_end = REG_END(state);
+        if (state->span) {
+            state->span->label_start = REG_START(state);
+            state->span->label_end = REG_END(state);
             //printf("key=%s,key_start=%i,key_end=%i\n", state->key, state->key_start, state->key_end);
-            update_span(state->node_info, REG_START(state), REG_END(state));
+            update_span(state->span, REG_START(state), REG_END(state));
         }
     }
     return NULL;
@@ -677,27 +677,27 @@ static struct skel *parse_quant_maybe(struct lens *lens, struct state *state,
 static struct tree *get_subtree(struct lens *lens, struct state *state) {
     char *key = state->key;
     char *value = state->value;
-    struct node_info *node_info = state->node_info;
+    struct span *span = state->span;
 
     struct tree *tree = NULL, *children;
 
     state->key = NULL;
     state->value = NULL;
     if (state->info->flags & AUG_ENABLE_SPAN)
-        state->node_info = make_node_info(state->info);
+        state->span = make_span(state->info);
 
     children = get_lens(lens->child, state);
 
     tree = make_tree(state->key, state->value, NULL, children);
-    tree->node_info = state->node_info;
+    tree->span = state->span;
 
-    if (state->node_info != NULL) {
-        update_span(node_info, state->node_info->span_start, state->node_info->span_end);
+    if (state->span != NULL) {
+        update_span(span, state->span->span_start, state->span->span_end);
     }
 
     state->key = key;
     state->value = value;
-    state->node_info = node_info;
+    state->span = span;
     return tree;
 }
 
@@ -882,11 +882,11 @@ static void visit_enter(struct lens *lens,
         struct frame *f = push_frame(rec_state, lens);
         f->key = state->key;
         f->value = state->value;
-        f->node_info = state->node_info;
+        f->span = state->span;
         state->key = NULL;
         state->value = NULL;
         if (state->info->flags & AUG_ENABLE_SPAN) {
-            state->node_info = make_node_info(state->info);
+            state->span = make_span(state->info);
         }
     }
 }
@@ -979,13 +979,13 @@ static void visit_exit(struct lens *lens,
             struct tree *tree;
             // FIXME: tree may leak if pop_frame ensure0 fail
             tree = make_tree(top->key, top->value, NULL, top->tree);
-            tree->node_info = state->node_info;
+            tree->span = state->span;
             ERR_NOMEM(tree == NULL, lens->info);
             top = pop_frame(rec_state);
             ensure(lens == top->lens, state->info);
             state->key = top->key;
             state->value = top->value;
-            state->node_info = top->node_info;
+            state->span = top->span;
             pop_frame(rec_state);
             top = push_frame(rec_state, lens);
             top->tree = tree;

@@ -669,18 +669,18 @@ static void cmd_span(struct command *cmd) {
     const char *option;
     // FIXME: add check to see if AUG_ENABLE_SPAN is set
 
-    if (aug_get(aug, AUGEAS_INDEX_OPTION, &option) != 1) {
-        printf("Error: option " AUGEAS_INDEX_OPTION " not found\n");
+    if (aug_get(aug, AUGEAS_SPAN_OPTION, &option) != 1) {
+        printf("Error: option " AUGEAS_SPAN_OPTION " not found\n");
         return;
     }
     if (strcmp(AUG_DISABLE, option) == 0) {
         printf("Span is not enabled. To enable, run commands:\n");
-        printf("set %s %s\n", AUGEAS_INDEX_OPTION, AUG_ENABLE);
+        printf("set %s %s\n", AUGEAS_SPAN_OPTION, AUG_ENABLE);
         printf("rm %s\n", AUGEAS_FILES_TREE);
         printf("load\n");
         return;
     } else if (strcmp(AUG_ENABLE, option) != 0) {
-        printf("Error: option %s must be %s or %s\n", AUGEAS_INDEX_OPTION,
+        printf("Error: option %s must be %s or %s\n", AUGEAS_SPAN_OPTION,
                AUG_ENABLE, AUG_DISABLE);
         return;
     }

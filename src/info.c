@@ -23,6 +23,7 @@
 #include <config.h>
 #include "info.h"
 #include "internal.h"
+#include "memory.h"
 #include "ref.h"
 
 /*
@@ -113,38 +114,40 @@ void free_info(struct info *info) {
     free(info);
 }
 
-struct node_info *make_node_info(struct info *info) {
-    struct node_info *node_info = NULL;
-    if (make_ref(node_info) < 0) {
-        unref(node_info, node_info);
+struct span *make_span(struct info *info) {
+    struct span *span = NULL;
+    if (ALLOC(span) < 0) {
+        return NULL;
     }
-    node_info->filename = ref(info->filename);
-    node_info->is_first_update = true;
-    return node_info;
+    /* UINT_MAX means span is not initialized yet */
+    span->span_start = UINT_MAX;
+    span->filename = ref(info->filename);
+    return span;
 }
 
-void free_node_info(struct node_info *node_info) {
+void free_span(struct span *span) {
+    if (span == NULL)
+        return;
+    unref(span->filename, string);
+    free(span);
+}
+
+void print_span(struct span *span) {
+    if (span == NULL)
+        return;
+    printf("%s label=(%i:%i) value=(%i:%i) span=(%i,%i)\n",
+            span->filename->str,
+            span->label_start, span->label_end,
+            span->value_start, span->value_end,
+            span->span_start, span->span_end);
+}
+
+void update_span(struct span *node_info, int x, int y) {
     if (node_info == NULL)
         return;
-    assert(node_info->ref == 0);
-    unref(node_info->filename, string);
-    free(node_info);
-}
-
-void print_node_info(struct node_info *n) {
-    if (n == NULL)
-        return;
-    printf("%s ifu=%i label=(%i:%i) value=(%i:%i) span=(%i,%i)\n", n->filename->str, n->is_first_update,
-           n->label_start, n->label_end, n->value_start, n->value_end, n->span_start, n->span_end);
-}
-
-void update_span(struct node_info *node_info, int x, int y) {
-    if (node_info == NULL)
-        return;
-    if (node_info->is_first_update) {
+    if (node_info->span_start == UINT_MAX) {
         node_info->span_start = x;
         node_info->span_end = y;
-        node_info->is_first_update = false;
     } else {
         if (node_info->span_start > x)
             node_info->span_start = x;

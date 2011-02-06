@@ -90,9 +90,9 @@
 /* Where to put information about parsing of path expressions */
 #define AUGEAS_META_PATHX AUGEAS_META_TREE "/pathx"
 
-/* Define: AUGEAS_INDEX_OPTION
+/* Define: AUGEAS_SPAN_OPTION
  * Enable or disable node indexes */
-#define AUGEAS_INDEX_OPTION AUGEAS_META_TREE "/span"
+#define AUGEAS_SPAN_OPTION AUGEAS_META_TREE "/span"
 
 /* Define: AUGEAS_LENS_ENV
  * Name of env var that contains list of paths to search for additional
@@ -352,7 +352,7 @@ struct tree {
     struct tree *children;   /* List of children through NEXT */
     char        *value;
     int          dirty;
-    struct node_info *node_info;
+    struct span *span;
 };
 
 /* The opaque structure used to represent path expressions. API's

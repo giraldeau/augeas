@@ -260,7 +260,7 @@ static void testNodeInfo(CuTest *tc) {
     struct augeas *aug;
     struct span_test_def test;
     char *fbase;
-    char msg[20];
+    char msg[1024];
     static const char *const expr = "/files/etc/hosts/1/ipaddr";
 
     char *filename_ac;
@@ -271,17 +271,23 @@ static void testNodeInfo(CuTest *tc) {
     CuAssertRetSuccess(tc, ret);
 
     while(span_test[i].expr != NULL) {
-        sprintf(msg, "span_test %d\n", i);
         test = span_test[i];
         i++;
         ret = aug_span(aug, test.expr, &filename_ac, &label_start, &label_end,
                      &value_start, &value_end, &span_start, &span_end);
+        sprintf(msg, "span_test %d ret\n", i);
         CuAssertIntEquals_Msg(tc, msg, test.ret, ret);
+        sprintf(msg, "span_test %d label_start\n", i);
         CuAssertIntEquals_Msg(tc, msg, test.ls, label_start);
+        sprintf(msg, "span_test %d label_end\n", i);
         CuAssertIntEquals_Msg(tc, msg, test.le, label_end);
+        sprintf(msg, "span_test %d value_start\n", i);
         CuAssertIntEquals_Msg(tc, msg, test.vs, value_start);
+        sprintf(msg, "span_test %d value_end\n", i);
         CuAssertIntEquals_Msg(tc, msg, test.ve, value_end);
+        sprintf(msg, "span_test %d span_start\n", i);
         CuAssertIntEquals_Msg(tc, msg, test.ss, span_start);
+        sprintf(msg, "span_test %d span_end\n", i);
         CuAssertIntEquals_Msg(tc, msg, test.se, span_end);
         if (filename_ac != NULL) {
             fbase = basename(filename_ac);

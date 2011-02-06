@@ -63,7 +63,8 @@ static const char *const errcodes[] = {
     "Too many matches for path expression",             /* AUG_EMMATCH */
     "Syntax error in lens definition",                  /* AUG_ESYNTAX */
     "Lens not found",                                   /* AUG_ENOLENS */
-    "Multiple transforms"                               /* AUG_EMXFM */
+    "Multiple transforms",                              /* AUG_EMXFM */
+    "Node has no span info"                             /* AUG_ENOSPAN */
 };
 
 static void tree_mark_dirty(struct tree *tree) {
@@ -423,9 +424,9 @@ struct augeas *aug_init(const char *root, const char *loadpath,
     }
 
     if (flags & AUG_ENABLE_SPAN) {
-        aug_set(result, AUGEAS_INDEX_OPTION, AUG_ENABLE);
+        aug_set(result, AUGEAS_SPAN_OPTION, AUG_ENABLE);
     } else {
-        aug_set(result, AUGEAS_INDEX_OPTION, AUG_DISABLE);
+        aug_set(result, AUGEAS_SPAN_OPTION, AUG_DISABLE);
     }
 
     /* Make sure we always have /files and /augeas/variables */
@@ -537,11 +538,11 @@ int aug_load(struct augeas *aug) {
      */
 
     /* update flags according to option value */
-    if (aug_get(aug, AUGEAS_INDEX_OPTION, &option) == 1) {
-        if (strcmp(option, AUG_DISABLE) == 0) {
-            aug->flags &= ~AUG_ENABLE_SPAN;
-        } else if (strcmp(option, AUG_ENABLE) == 0) {
+    if (aug_get(aug, AUGEAS_SPAN_OPTION, &option) == 1) {
+        if (strcmp(option, AUG_ENABLE) == 0) {
             aug->flags |= AUG_ENABLE_SPAN;
+        } else {
+            aug->flags &= ~AUG_ENABLE_SPAN;
         }
     }
 
@@ -859,8 +860,6 @@ struct tree *make_tree(char *label, char *value, struct tree *parent,
         tree_mark_dirty(tree);
     else
         tree->dirty = 1;
-    // FIXME: should allocation belong to make_tree?
-    //tree->node_info = make_node_info();
     return tree;
 }
 
@@ -880,7 +879,8 @@ static void free_tree_node(struct tree *tree) {
     if (tree == NULL)
         return;
 
-    unref(tree->node_info, node_info);
+    if (tree->span != NULL)
+        free_span(tree->span);
     free(tree->label);
     free(tree->value);
     free(tree);
@@ -968,39 +968,56 @@ int aug_span(struct augeas *aug, const char *path, char **filename,
         uint *label_start, uint *label_end, uint *value_start, uint *value_end,
         uint *span_start, uint *span_end) {
     struct pathx *p = NULL;
-    int result;
+    int result = -1;
     struct tree *tree = NULL;
+    struct span *span;
 
     api_entry(aug);
+
     p = pathx_aug_parse(aug, aug->origin, path, true);
+    ERR_BAIL(aug);
+
     tree = pathx_first(p);
-    if (tree == NULL || tree->node_info == NULL){
-        result = -1;
+    ERR_BAIL(aug);
+
+    if (tree == NULL || tree->span == NULL){
         goto error;
     }
 
+    span = tree->span;
+
     if (label_start != NULL)
-        *label_start = tree->node_info->label_start;
+        *label_start = span->label_start;
+
     if (label_end != NULL)
-        *label_end   = tree->node_info->label_end;
+        *label_end = span->label_end;
+
     if (value_start != NULL)
-        *value_start = tree->node_info->value_start;
+        *value_start = span->value_start;
+
     if (value_end != NULL)
-        *value_end   = tree->node_info->value_end;
-    if (span_start != NULL)
-        *span_start  = tree->node_info->span_start;
+        *value_end = span->value_end;
+
+    /* span_start special case for uninitialized span */
+    if (span_start != NULL) {
+        if (span->span_start == UINT_MAX) {
+            *span_start = 0;
+        } else {
+            *span_start = span->span_start;
+        }
+    }
+
     if (span_end != NULL)
-        *span_end    = tree->node_info->span_end;
+        *span_end = span->span_end;
 
     /* We are safer here, make sure we have a filename */
-    if (tree->node_info->filename == NULL || tree->node_info->filename->str == NULL) {
+    if (span->filename == NULL || span->filename->str == NULL) {
         *filename = strdup("");
     } else {
-        *filename = strdup(tree->node_info->filename->str);
+        *filename = strdup(span->filename->str);
     }
 
     result = 0;
-    ERR_BAIL(aug);
     api_exit(aug);
     return result;
 

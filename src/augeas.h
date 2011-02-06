@@ -155,11 +155,12 @@ int aug_setm(augeas *aug, const char *base, const char *sub, const char *value);
  * Get the information about the node associated with PATH. If the node is
  * associated with a file, the filename, label and value start and end positions
  * are set, and return value is 0. If the node associated with PATH doesn't
- * belong to a file or is doesn't exists, filename and indexes are not set and
+ * belong to a file or is doesn't exists, filename and span are not set and
  * return value is -1.
  *
  * Returns:
- * 0 on success with filename, label_start, label_stop, value_start, value_end
+ * 0 on success with filename, label_start, label_stop, value_start, value_end,
+ *   span_start, span_end
  * -1 on error
  */
 
