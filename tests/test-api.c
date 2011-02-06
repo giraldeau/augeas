@@ -294,14 +294,31 @@ static void testNodeInfo(CuTest *tc) {
         } else {
             fbase = NULL;
         }
-        CuAssertStrEquals(tc, test.f, fbase);
+        sprintf(msg, "span_test %d filename\n", i);
+        CuAssertStrEquals_Msg(tc, msg, test.f, fbase);
         free(filename_ac);
         filename_ac = NULL;
         reset_indexes(&label_start, &label_end, &value_start, &value_end,
                       &span_start, &span_end);
     }
 
-    /* test that nodes info are not loaded */
+    /* aug_span returns -1 and when no node matches */
+    ret = aug_span(aug, "/files/etc/hosts/*[ last() + 1 ]", &filename_ac,
+            &label_start, &label_end, &value_start, &value_end,
+            &span_start, &span_end);
+    CuAssertIntEquals(tc, -1, ret);
+    CuAssertPtrEquals(tc, NULL, filename_ac);
+    CuAssertIntEquals(tc, AUG_ENOMATCH, aug_error(aug));
+
+    /* aug_span should return an error when multiple nodes match */
+    ret = aug_span(aug, "/files/etc/hosts/*", &filename_ac,
+            &label_start, &label_end, &value_start, &value_end,
+            &span_start, &span_end);
+    CuAssertIntEquals(tc, -1, ret);
+    CuAssertPtrEquals(tc, NULL, filename_ac);
+    CuAssertIntEquals(tc, AUG_EMMATCH, aug_error(aug));
+
+    /* aug_span returns -1 if nodes span are not loaded */
     aug_close(aug);
     aug = aug_init(root, loadpath, AUG_NO_STDINC|AUG_NO_LOAD);
     ret = aug_load(aug);
@@ -309,6 +326,8 @@ static void testNodeInfo(CuTest *tc) {
     ret = aug_span(aug, expr, &filename_ac, &label_start, &label_end,
                  &value_start, &value_end, &span_start, &span_end);
     CuAssertIntEquals(tc, -1, ret);
+    CuAssertPtrEquals(tc, NULL, filename_ac);
+    CuAssertIntEquals(tc, AUG_ENOSPAN, aug_error(aug));
     reset_indexes(&label_start, &label_end, &value_start, &value_end,
                   &span_start, &span_end);
 

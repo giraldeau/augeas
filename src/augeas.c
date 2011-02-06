@@ -980,9 +980,9 @@ int aug_span(struct augeas *aug, const char *path, char **filename,
     tree = pathx_first(p);
     ERR_BAIL(aug);
 
-    if (tree == NULL || tree->span == NULL){
-        goto error;
-    }
+    ERR_THROW(tree == NULL, aug, AUG_ENOMATCH, "No node matching %s", path);
+    ERR_THROW(tree->span == NULL, aug, AUG_ENOSPAN, "No span info for %s", path);
+    ERR_THROW(pathx_next(p) != NULL, aug, AUG_EMMATCH, "Multiple nodes match %s", path);
 
     span = tree->span;
 
@@ -998,30 +998,25 @@ int aug_span(struct augeas *aug, const char *path, char **filename,
     if (value_end != NULL)
         *value_end = span->value_end;
 
-    /* span_start special case for uninitialized span */
-    if (span_start != NULL) {
-        if (span->span_start == UINT_MAX) {
-            *span_start = 0;
-        } else {
-            *span_start = span->span_start;
-        }
-    }
+    if (span_start != NULL)
+        *span_start = span->span_start;
 
     if (span_end != NULL)
         *span_end = span->span_end;
 
     /* We are safer here, make sure we have a filename */
-    if (span->filename == NULL || span->filename->str == NULL) {
-        *filename = strdup("");
-    } else {
-        *filename = strdup(span->filename->str);
+    if (filename != NULL) {
+        if (span->filename == NULL || span->filename->str == NULL) {
+            *filename = strdup("");
+        } else {
+            *filename = strdup(span->filename->str);
+        }
+        ERR_NOMEM(*filename == NULL, aug);
     }
 
     result = 0;
-    api_exit(aug);
-    return result;
-
  error:
+    free_pathx(p);
     api_exit(aug);
     return result;
 }

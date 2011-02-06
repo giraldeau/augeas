@@ -152,9 +152,11 @@ int aug_setm(augeas *aug, const char *base, const char *sub, const char *value);
 
 /* Function: aug_span
  *
- * Get the information about the node associated with PATH. If the node is
- * associated with a file, the filename, label and value start and end positions
- * are set, and return value is 0. If the node associated with PATH doesn't
+ * Get the span according to input file of the node associated with PATH. If
+ * the node is associated with a file, the filename, label and value start and
+ * end positions are set, and return value is 0. The caller is responsible for
+ * freeing returned filename. If an argument for return value is NULL, then the
+ * corresponding value is not set. If the node associated with PATH doesn't
  * belong to a file or is doesn't exists, filename and span are not set and
  * return value is -1.
  *
@@ -165,8 +167,9 @@ int aug_setm(augeas *aug, const char *base, const char *sub, const char *value);
  */
 
 int aug_span(augeas *aug, const char *path, char **filename,
-        uint *label_start, uint *label_end, uint *value_start, uint *value_end,
-        uint *span_start, uint *span_end);
+        unsigned int *label_start, unsigned int *label_end,
+        unsigned int *value_start, unsigned int *value_end,
+        unsigned int *span_start, unsigned int *span_end);
 
 /* Function: aug_insert
  *

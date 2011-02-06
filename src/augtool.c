@@ -1084,6 +1084,7 @@ static void usage(void) {
     fprintf(stderr, "  --nostdinc         do not search the builtin default directories for modules\n");
     fprintf(stderr, "  --noload           do not load any files into the tree on startup\n");
     fprintf(stderr, "  --noautoload       do not autoload modules from the search path\n");
+    fprintf(stderr, "  --span             load span positions for nodes related to a file\n");
     fprintf(stderr, "  --version          print version information and exit.\n");
 
     exit(EXIT_FAILURE);

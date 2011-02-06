@@ -454,7 +454,6 @@ static struct tree *get_key(struct lens *lens, struct state *state) {
         if (state->span) {
             state->span->label_start = REG_START(state);
             state->span->label_end = REG_END(state);
-            //printf("key=%s,key_start=%i,key_end=%i\n", state->key, state->key_start, state->key_end);
             update_span(state->span, REG_START(state), REG_END(state));
         }
     }
@@ -683,8 +682,10 @@ static struct tree *get_subtree(struct lens *lens, struct state *state) {
 
     state->key = NULL;
     state->value = NULL;
-    if (state->info->flags & AUG_ENABLE_SPAN)
+    if (state->info->flags & AUG_ENABLE_SPAN) {
         state->span = make_span(state->info);
+        ERR_NOMEM(state->span == NULL, state->info);
+    }
 
     children = get_lens(lens->child, state);
 
@@ -699,6 +700,8 @@ static struct tree *get_subtree(struct lens *lens, struct state *state) {
     state->value = value;
     state->span = span;
     return tree;
+ error:
+    return NULL;
 }
 
 static struct skel *parse_subtree(struct lens *lens, struct state *state,
@@ -887,8 +890,11 @@ static void visit_enter(struct lens *lens,
         state->value = NULL;
         if (state->info->flags & AUG_ENABLE_SPAN) {
             state->span = make_span(state->info);
+            ERR_NOMEM(state->span == NULL, state->info);
         }
     }
+ error:
+    return;
 }
 
 static void get_combine(struct rec_state *rec_state,

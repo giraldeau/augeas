@@ -512,6 +512,7 @@ static int load_file(struct augeas *aug, struct lens *lens,
 
     if (aug->flags & AUG_ENABLE_SPAN) {
         span = make_span(info);
+        ERR_NOMEM(span == NULL, info);
     }
 
     tree = lns_get(info, lens, text, &err);
