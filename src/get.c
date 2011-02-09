@@ -692,6 +692,7 @@ static struct tree *get_square(struct lens *lens, struct state *state) {
 
     struct tree *tree = NULL;
     char *key = NULL, *square = NULL;
+    int res;
 
     // get the child lens
     tree = get_concat(lens->child, state);
@@ -701,7 +702,13 @@ static struct tree *get_square(struct lens *lens, struct state *state) {
     ensure0(key != NULL, state->info);
     ensure0(square != NULL, state->info);
 
-    if (strcmp(key, square) != 0) {
+    if (lens->ktype->nocase) {
+        res = STRCASEEQ(key, square);
+    } else {
+        res = STREQ(key, square);
+    }
+
+    if (res == 0) {
         get_error(state, lens, "%s \"%s\" %s \"%s\"",
                 "Parse error: mismatched key in square lens, expecting", key,
                 "but got", square);
@@ -1010,6 +1017,7 @@ static void visit_exit(struct lens *lens,
     } else if (lens->tag == L_SQUARE) {
         if (rec_state->mode == M_GET) {
             char *key, *square;
+            int res;
 
             key = top_frame(rec_state)->key;
             square = top_frame(rec_state)->square;
@@ -1017,8 +1025,13 @@ static void visit_exit(struct lens *lens,
             ensure(key != NULL, state->info);
             ensure(square != NULL, state->info);
 
-            // raise syntax error if they are not equals
-            if (strcmp(key, square) != 0){
+            if (lens->ktype->nocase) {
+                res = STRCASEEQ(key, square);
+            } else {
+                res = STREQ(key, square);
+            }
+
+            if (res == 0) {
                 get_error(state, lens, "%s \"%s\" %s \"%s\"",
                                 "Parse error: mismatched key in square lens, expecting", key,
                                 "but got", square);

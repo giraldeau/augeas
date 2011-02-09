@@ -112,3 +112,43 @@ test sqr3 put input3 after clear "/x[1]" = input3
 let b4 = del "x" "x"
 let rec sqr4 = [ del /[a]+/ "a" . square /[b]|[c]/ (b4|sqr4) ]
 test sqr4 put "aabaaacxcb" after rm "x" = "aabaaacxcb"
+
+(* test case insensitive match *)
+let b5 = del "x" "x"
+let sqr5 = [ square /[a]+/i b5 . b5 ]*
+test sqr5 put "axaxAxAxaxAxAxax" after rm "/x" = "axaxAxAxaxAxAxax"
+test sqr5 put "" after clear "/A" = "AxAx"
+test sqr5 put "" after clear "/a" = "axax"
+
+(* Basic element *)
+let xml_element_i (body:lens) =
+    let g = del ">" ">" . body . del "</" "</" in
+        [ del "<" "<" . square /[a-z]+/i g . del ">" ">" ] *
+
+let rec xml_rec_i = xml_element_i xml_rec_i
+let doc_i = "<a><B><c><D><e></E></d></c></b></A>"
+test xml_rec_i get doc_i =
+  { "a"
+    { "B"
+      { "c"
+        { "D"
+          { "e" }
+        }
+      }
+    }
+  }
+
+let rec rec_i = [ key /[a]/i . rec_i ]?
+test rec_i get "aA" =
+  { "a"
+    { "A" }
+  }
+
+(* test case sensitive: error raised *)
+let b7 = del "x" "x"
+let sqr7 = [ square /[a]+/ b5 . b5 ]*
+test sqr7 get "axA" = *
+
+(* lt-augparse: put.c:236: split_concat:
+   Assertion `regs.start[reg] != -1' failed. *)
+test xml_rec_i put doc_i after rm "x" = ?

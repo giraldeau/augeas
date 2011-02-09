@@ -468,12 +468,7 @@ static void put_del(ATTRIBUTE_UNUSED struct lens *lens, struct state *state) {
     assert(lens->tag == L_DEL);
     assert(state->skel != NULL);
     assert(state->skel->tag == L_DEL);
-    if (lens->string != NULL) {
     fprintf(state->out, "%s", state->skel->text);
-    } else {
-    /* L_DEL with NULL string: replicate the current key */
-        fprintf(state->out, "%s", state->key);
-    }
 }
 
 static void put_union(struct lens *lens, struct state *state) {
