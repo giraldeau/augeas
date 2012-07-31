@@ -104,6 +104,8 @@ void print_info(FILE *out, struct info *info) {
                     info->last_line, info->last_column);
         }
     }
+    if (info->error != NULL && info->error->details != NULL)
+        fprintf(out, "\n%s\n", info->error->details);
 }
 
 void free_info(struct info *info) {

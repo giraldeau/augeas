@@ -26,6 +26,7 @@
 #include <stdio.h>
 #include <stdint.h>
 #include <stdlib.h>
+#include "errcode.h"
 #include "ref.h"
 
 /* Reference-counted strings */

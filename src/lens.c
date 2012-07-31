@@ -39,53 +39,56 @@ static const int const type_offs[] = {
     offsetof(struct lens, ktype),
     offsetof(struct lens, vtype)
 };
-static const int ntypes = sizeof(type_offs)/sizeof(type_offs[0]);
+static const int ntypes = sizeof(type_offs) / sizeof(type_offs[0]);
 
-static const char *lens_type_names[] =
-    { "ctype", "atype", "ktype", "vtype" };
+static const char *lens_type_names[] = { "ctype", "atype", "ktype", "vtype" };
 
 #define ltype(lns, t) *((struct regexp **) ((char *) lns + type_offs[t]))
 
-static struct value * typecheck_union(struct info *,
-                                      struct lens *l1, struct lens *l2);
-static struct value *typecheck_concat(struct info *,
-                                      struct lens *l1, struct lens *l2);
-static struct value *typecheck_iter(struct info *info, struct lens *l);
-static struct value *typecheck_maybe(struct info *info, struct lens *l);
+static struct value *
+typecheck_union(struct info *, struct lens *l1, struct lens *l2);
+static struct value *
+typecheck_concat(struct info *, struct lens *l1, struct lens *l2);
+static struct value *
+typecheck_square(struct info *, struct lens *l1, struct lens *l2);
+static struct value *
+typecheck_iter(struct info *info, struct lens *l);
+static struct value *
+typecheck_maybe(struct info *info, struct lens *l);
 
 /* Lens names for pretty printing */
 /* keep order in sync with enum type */
-static const char *const tags[] = {
-    "del", "store", "value", "key", "label", "seq", "counter",
-    "concat", "union",
-    "subtree", "star", "maybe", "rec", "square"
-};
+static const char * const tags[] = { "del", "store", "value", "key", "label",
+        "seq", "counter", "concat", "union", "subtree", "star", "maybe", "rec",
+        "square" };
 
 #define ltag(lens) (tags[lens->tag - L_DEL])
 
-static const struct string digits_string = {
-    .ref = REF_MAX, .str = (char *) "[0123456789]+"
-};
-static const struct string *const digits_pat = &digits_string;
+static const struct string digits_string = { .ref = REF_MAX, .str =
+        (char *) "[0123456789]+" };
+static const struct string * const digits_pat = &digits_string;
 
-char *format_lens(struct lens *l) {
+char *
+format_lens(struct lens *l) {
     char *inf = format_info(l->info);
     char *result;
 
     xasprintf(&result, "%s[%s]%s", tags[l->tag - L_DEL], inf,
-              l->recursive ? "R" : "r");
+            l->recursive ? "R" : "r");
     free(inf);
     return result;
 }
 
 #define BUG_LENS_TAG(lns)  bug_lens_tag(lns, __FILE__, __LINE__)
 
-static void bug_lens_tag(struct lens *lens, const char *file, int lineno) {
+static void
+bug_lens_tag(struct lens *lens, const char *file, int lineno) {
     char *s = format_lens(lens);
 
     if (lens != NULL && lens->info != NULL && lens->info->error != NULL) {
         bug_on(lens->info->error, file, lineno, "Unexpected lens tag %s", s);
-    } else {
+    }
+    else {
         /* We are really screwed */
         assert(0);
     }
@@ -98,8 +101,8 @@ static void bug_lens_tag(struct lens *lens, const char *file, int lineno) {
  * Return NULL if REGEXP is valid, if the regexp REGEXP has syntax errors,
  * return an exception.
  */
-static struct value *str_to_fa(struct info *info, const char *pattern,
-                               struct fa **fa, int nocase) {
+static struct value *
+str_to_fa(struct info *info, const char *pattern, struct fa **fa, int nocase) {
     int error;
     struct value *exn = NULL;
     size_t re_err_len;
@@ -127,22 +130,22 @@ static struct value *str_to_fa(struct info *info, const char *pattern,
     regerror(error, NULL, re_err, re_err_len);
     exn_printf_line(exn, "%s", re_err);
 
- done:
-    free(re_str);
+    done: free(re_str);
     free(re_err);
     return exn;
- error:
-    fa_free(*fa);
+    error: fa_free(*fa);
     *fa = NULL;
     exn = info->error->exn;
     goto done;
 }
 
-static struct value *regexp_to_fa(struct regexp *regexp, struct fa **fa) {
+static struct value *
+regexp_to_fa(struct regexp *regexp, struct fa **fa) {
     return str_to_fa(regexp->info, regexp->pattern->str, fa, regexp->nocase);
 }
 
-static struct lens *make_lens(enum lens_tag tag, struct info *info) {
+static struct lens *
+make_lens(enum lens_tag tag, struct info *info) {
     struct lens *lens;
     make_ref(lens);
     lens->tag = tag;
@@ -151,8 +154,8 @@ static struct lens *make_lens(enum lens_tag tag, struct info *info) {
     return lens;
 }
 
-static struct lens *make_lens_unop(enum lens_tag tag, struct info *info,
-                                  struct lens *child) {
+static struct lens *
+make_lens_unop(enum lens_tag tag, struct info *info, struct lens *child) {
     struct lens *lens = make_lens(tag, info);
     lens->child = child;
     lens->value = child->value;
@@ -160,11 +163,12 @@ static struct lens *make_lens_unop(enum lens_tag tag, struct info *info,
     return lens;
 }
 
-typedef struct regexp *regexp_combinator(struct info *, int, struct regexp **);
+typedef struct regexp *
+regexp_combinator(struct info *, int, struct regexp **);
 
-static struct lens *make_lens_binop(enum lens_tag tag, struct info *info,
-                                    struct lens *l1, struct lens *l2,
-                                    regexp_combinator *combinator) {
+static struct lens *
+make_lens_binop(enum lens_tag tag, struct info *info, struct lens *l1,
+        struct lens *l2, regexp_combinator *combinator) {
     struct lens *lens = make_lens(tag, info);
     int n1 = (l1->tag == tag) ? l1->nchildren : 1;
     struct regexp **types = NULL;
@@ -184,22 +188,24 @@ static struct lens *make_lens_binop(enum lens_tag tag, struct info *info,
     }
 
     if (l1->tag == tag) {
-        for (int i=0; i < l1->nchildren; i++)
+        for (int i = 0; i < l1->nchildren; i++)
             lens->children[i] = ref(l1->children[i]);
         unref(l1, lens);
-    } else {
+    }
+    else {
         lens->children[0] = l1;
     }
 
     if (l2->tag == tag) {
-        for (int i=0; i < l2->nchildren; i++)
+        for (int i = 0; i < l2->nchildren; i++)
             lens->children[n1 + i] = ref(l2->children[i]);
         unref(l2, lens);
-    } else {
+    }
+    else {
         lens->children[n1] = l2;
     }
 
-    for (int i=0; i < lens->nchildren; i++) {
+    for (int i = 0; i < lens->nchildren; i++) {
         lens->value = lens->value || lens->children[i]->value;
         lens->key = lens->key || lens->children[i]->key;
     }
@@ -207,38 +213,39 @@ static struct lens *make_lens_binop(enum lens_tag tag, struct info *info,
     if (ALLOC_N(types, lens->nchildren) < 0)
         goto error;
 
-    if (! lens->rec_internal) {
+    if (!lens->rec_internal) {
         /* Inside a recursive lens, we assign types with lns_check_rec
          * once we know the entire lens */
-        for (int t=0; t < ntypes; t++) {
+        for (int t = 0; t < ntypes; t++) {
             if (lens->recursive && t == CTYPE)
                 continue;
-            for (int i=0; i < lens->nchildren; i++)
+            for (int i = 0; i < lens->nchildren; i++)
                 types[i] = ltype(lens->children[i], t);
             ltype(lens, t) = (*combinator)(info, lens->nchildren, types);
         }
     }
     FREE(types);
 
-    for (int i=0; i < lens->nchildren; i++)
+    for (int i = 0; i < lens->nchildren; i++)
         ensure(tag != lens->children[i]->tag, lens->info);
 
     return lens;
- error:
+    error:
     unref(lens, lens);
     FREE(types);
     return NULL;
 }
 
-static struct value *make_lens_value(struct lens *lens) {
+static struct value *
+make_lens_value(struct lens *lens) {
     struct value *v;
     v = make_value(V_LENS, ref(lens->info));
     v->lens = lens;
     return v;
 }
 
-struct value *lns_make_union(struct info *info,
-                             struct lens *l1, struct lens *l2, int check) {
+struct value *
+lns_make_union(struct info *info, struct lens *l1, struct lens *l2, int check) {
     struct lens *lens = NULL;
     int consumes_value = l1->consumes_value && l2->consumes_value;
     int recursive = l1->recursive || l2->recursive;
@@ -252,13 +259,13 @@ struct value *lns_make_union(struct info *info,
 
     lens = make_lens_binop(L_UNION, info, l1, l2, regexp_union_n);
     lens->consumes_value = consumes_value;
-    if (! recursive)
+    if (!recursive)
         lens->ctype_nullable = ctype_nullable;
     return make_lens_value(lens);
 }
 
-struct value *lns_make_concat(struct info *info,
-                              struct lens *l1, struct lens *l2, int check) {
+struct value *
+lns_make_concat(struct info *info, struct lens *l1, struct lens *l2, int check) {
     struct lens *lens = NULL;
     int consumes_value = l1->consumes_value || l2->consumes_value;
     int recursive = l1->recursive || l2->recursive;
@@ -278,14 +285,13 @@ struct value *lns_make_concat(struct info *info,
 
     lens = make_lens_binop(L_CONCAT, info, l1, l2, regexp_concat_n);
     lens->consumes_value = consumes_value;
-    if (! recursive)
+    if (!recursive)
         lens->ctype_nullable = ctype_nullable;
     return make_lens_value(lens);
 }
 
-static struct regexp *subtree_atype(struct info *info,
-                                    struct regexp *ktype,
-                                    struct regexp *vtype) {
+static struct regexp *
+subtree_atype(struct info *info, struct regexp *ktype, struct regexp *vtype) {
     const char *kpat = (ktype == NULL) ? ENC_NULL : ktype->pattern->str;
     const char *vpat = (vtype == NULL) ? ENC_NULL : vtype->pattern->str;
     char *pat;
@@ -300,7 +306,8 @@ static struct regexp *subtree_atype(struct info *info,
         if (asprintf(&pat, "(%s)%s(%s)%s", ks, ENC_EQ, vs, ENC_SLASH) < 0)
             ERR_NOMEM(true, info);
         nocase = 0;
-    } else {
+    }
+    else {
         if (asprintf(&pat, "(%s)%s(%s)%s", kpat, ENC_EQ, vpat, ENC_SLASH) < 0)
             ERR_NOMEM(pat == NULL, info);
 
@@ -311,8 +318,7 @@ static struct regexp *subtree_atype(struct info *info,
             nocase = vtype->nocase;
     }
     result = make_regexp(info, pat, nocase);
- error:
-    free(ks);
+    error: free(ks);
     free(vs);
     return result;
 }
@@ -327,22 +333,24 @@ static struct regexp *subtree_atype(struct info *info,
  * l1->ktype = NULL
  * l1->vtype = NULL
  */
-struct value *lns_make_subtree(struct info *info, struct lens *l) {
+struct value *
+lns_make_subtree(struct info *info, struct lens *l) {
     struct lens *lens;
 
     lens = make_lens_unop(L_SUBTREE, info, l);
     lens->ctype = ref(l->ctype);
-    if (! l->recursive)
+    if (!l->recursive)
         lens->atype = subtree_atype(info, l->ktype, l->vtype);
     lens->value = lens->key = 0;
     lens->recursive = l->recursive;
     lens->rec_internal = l->rec_internal;
-    if (! l->recursive)
+    if (!l->recursive)
         lens->ctype_nullable = l->ctype_nullable;
     return make_lens_value(lens);
 }
 
-struct value *lns_make_star(struct info *info, struct lens *l, int check) {
+struct value *
+lns_make_star(struct info *info, struct lens *l, int check) {
     struct lens *lens;
 
     if (check) {
@@ -367,7 +375,8 @@ struct value *lns_make_star(struct info *info, struct lens *l, int check) {
     return make_lens_value(lens);
 }
 
-struct value *lns_make_plus(struct info *info, struct lens *l, int check) {
+struct value *
+lns_make_plus(struct info *info, struct lens *l, int check) {
     struct value *star, *conc;
 
     star = lns_make_star(info, l, check);
@@ -379,7 +388,8 @@ struct value *lns_make_plus(struct info *info, struct lens *l, int check) {
     return conc;
 }
 
-struct value *lns_make_maybe(struct info *info, struct lens *l, int check) {
+struct value *
+lns_make_maybe(struct info *info, struct lens *l, int check) {
     struct lens *lens;
 
     if (check) {
@@ -388,7 +398,7 @@ struct value *lns_make_maybe(struct info *info, struct lens *l, int check) {
             return exn;
     }
     lens = make_lens_unop(L_MAYBE, info, l);
-    for (int t=0; t < ntypes; t++)
+    for (int t = 0; t < ntypes; t++)
         ltype(lens, t) = regexp_maybe(info, ltype(l, t));
     lens->value = l->value;
     lens->key = l->key;
@@ -403,30 +413,28 @@ struct value *lns_make_maybe(struct info *info, struct lens *l, int check) {
  * where MATCHED is whatever the key lens matched (the inability to express
  * this with other lenses makes the square primitve necessary
  */
-struct value *lns_make_square(struct info *info,
-                              struct regexp *reg,
-                              struct lens *lns, int check) {
-    struct value *key = NULL, *del = NULL;
+struct value *
+lns_make_square(struct info *info, struct lens *l1, struct lens *l2,
+        struct lens *l3, int check) {
+
     struct value *cnt1 = NULL, *cnt2 = NULL, *res = NULL;
     struct lens *sqr = NULL;
 
-    res = lns_make_prim(L_KEY, ref(info), ref(reg), NULL);
-    if (EXN(res))
-        goto error;
-    key = res;
+    /* supported types: L_KEY . body . L_DEL or L_DEL . body . L_DEL */
+    if (l3->tag != L_DEL || (l1->tag != L_DEL && l1->tag != L_KEY))
+        return make_exn_value(info,
+                "Supported types: (key lns del) or (del lns del)");
 
-    res = lns_make_prim(L_DEL, ref(info), ref(reg), NULL);
-    if (EXN(res))
+    res = typecheck_square(info, l1, l3);
+    if (res != NULL)
         goto error;
-    del = res;
 
-    // typechecking is handled when concatenating lenses
-    res = lns_make_concat(ref(info), ref(key->lens), ref(lns), check);
+    /* do not increase ref of copies */
+    res = lns_make_concat(ref(info), ref(l1), ref(l2), check);
     if (EXN(res))
         goto error;
     cnt1 = res;
-
-    res = lns_make_concat(ref(info), ref(cnt1->lens), ref(del->lens), check);
+    res = lns_make_concat(ref(info), ref(cnt1->lens), ref(l3), check);
     if (EXN(res))
         goto error;
     cnt2 = res;
@@ -434,7 +442,7 @@ struct value *lns_make_square(struct info *info,
     sqr = make_lens_unop(L_SQUARE, ref(info), ref(cnt2->lens));
     ERR_NOMEM(sqr == NULL, info);
 
-    for (int t=0; t < ntypes; t++)
+    for (int t = 0; t < ntypes; t++)
         ltype(sqr, t) = ref(ltype(cnt2->lens, t));
     sqr->recursive = cnt2->lens->recursive;
     sqr->rec_internal = cnt2->lens->rec_internal;
@@ -444,13 +452,11 @@ struct value *lns_make_square(struct info *info,
     ERR_NOMEM(res == NULL, info);
     sqr = NULL;
 
- error:
+    error:
     unref(info, info);
-    unref(reg, regexp);
-    unref(lns, lens);
-
-    unref(key, value);
-    unref(del, value);
+    unref(l1, lens);
+    unref(l2, lens);
+    unref(l3, lens);
     unref(cnt1, value);
     unref(cnt2, value);
     unref(sqr, lens);
@@ -461,8 +467,8 @@ struct value *lns_make_square(struct info *info,
  * Lens primitives
  */
 
-static struct regexp *make_regexp_from_string(struct info *info,
-                                              struct string *string) {
+static struct regexp *
+make_regexp_from_string(struct info *info, struct string *string) {
     struct regexp *r;
     make_ref(r);
     if (r != NULL) {
@@ -473,15 +479,15 @@ static struct regexp *make_regexp_from_string(struct info *info,
     return r;
 }
 
-static struct regexp *restrict_regexp(struct regexp *r) {
+static struct regexp *
+restrict_regexp(struct regexp *r) {
     char *nre = NULL;
     struct regexp *result = NULL;
     size_t nre_len;
     int ret;
 
-    ret = fa_restrict_alphabet(r->pattern->str, strlen(r->pattern->str),
-                               &nre, &nre_len,
-                               RESERVED_FROM, RESERVED_TO);
+    ret = fa_restrict_alphabet(r->pattern->str, strlen(r->pattern->str), &nre,
+            &nre_len, RESERVED_FROM, RESERVED_TO);
     ERR_NOMEM(ret == REG_ESPACE || ret < 0, r->info);
     BUG_ON(ret != 0, r->info, NULL);
     ensure(nre_len == strlen(nre), r->info);
@@ -492,17 +498,17 @@ static struct regexp *restrict_regexp(struct regexp *r) {
     result = make_regexp(r->info, nre, r->nocase);
     nre = NULL;
     BUG_ON(regexp_compile(result) != 0, r->info,
-           "Could not compile restricted regexp");
- done:
-    free(nre);
+            "Could not compile restricted regexp");
+    done: free(nre);
     return result;
- error:
+    error:
     unref(result, regexp);
     goto done;
 }
 
-struct value *lns_make_prim(enum lens_tag tag, struct info *info,
-                            struct regexp *regexp, struct string *string) {
+struct value *
+lns_make_prim(enum lens_tag tag, struct info *info, struct regexp *regexp,
+        struct string *string) {
     struct lens *lens = NULL;
     struct value *exn = NULL;
     struct fa *fa_slash = NULL;
@@ -520,24 +526,24 @@ struct value *lns_make_prim(enum lens_tag tag, struct info *info,
             goto error;
 
         fa_isect = fa_intersect(fa_slash, fa_key);
-        if (! fa_is_basic(fa_isect, FA_EMPTY)) {
-            exn = make_exn_value(info,
-                                 "The key regexp /%s/ matches a '/'",
-                                 regexp->pattern->str);
+        if (!fa_is_basic(fa_isect, FA_EMPTY)) {
+            exn = make_exn_value(info, "The key regexp /%s/ matches a '/'",
+                    regexp->pattern->str);
             goto error;
         }
         fa_free(fa_isect);
         fa_free(fa_key);
         fa_free(fa_slash);
         fa_isect = fa_key = fa_slash = NULL;
-    } else if (tag == L_LABEL) {
+    }
+    else if (tag == L_LABEL) {
         if (strchr(string->str, SEP) != NULL) {
-            exn = make_exn_value(info,
-                                 "The label string \"%s\" contains a '/'",
-                                 string->str);
+            exn = make_exn_value(info, "The label string \"%s\" contains a '/'",
+                    string->str);
             goto error;
         }
-    } else if (tag == L_DEL && string != NULL) {
+    }
+    else if (tag == L_DEL && string != NULL) {
         int cnt;
         const char *dflt = string->str;
         cnt = regexp_match(regexp, dflt, strlen(dflt), 0, NULL);
@@ -545,8 +551,7 @@ struct value *lns_make_prim(enum lens_tag tag, struct info *info,
             char *s = escape(dflt, -1, RX_ESCAPES);
             char *r = regexp_escape(regexp);
             exn = make_exn_value(info,
-                   "del: the default value '%s' does not match /%s/",
-                   s, r);
+                    "del: the default value '%s' does not match /%s/", s, r);
             FREE(s);
             FREE(r);
             goto error;
@@ -565,25 +570,28 @@ struct value *lns_make_prim(enum lens_tag tag, struct info *info,
     if (tag == L_DEL || tag == L_STORE || tag == L_KEY) {
         lens->ctype = ref(regexp);
         lens->ctype_nullable = regexp_matches_empty(lens->ctype);
-    } else if (tag == L_LABEL || tag == L_VALUE
-               || tag == L_SEQ || tag == L_COUNTER) {
+    }
+    else if (tag == L_LABEL || tag == L_VALUE || tag == L_SEQ
+            || tag == L_COUNTER) {
         lens->ctype = regexp_make_empty(info);
         lens->ctype_nullable = 1;
-    } else {
+    }
+    else {
         BUG_LENS_TAG(lens);
         goto error;
     }
 
-
     /* Set the ktype */
     if (tag == L_SEQ) {
-        lens->ktype =
-            make_regexp_from_string(info, (struct string *) digits_pat);
+        lens->ktype = make_regexp_from_string(info,
+                (struct string *) digits_pat);
         if (lens->ktype == NULL)
             goto error;
-    } else if (tag == L_KEY) {
+    }
+    else if (tag == L_KEY) {
         lens->ktype = restrict_regexp(lens->regexp);
-    } else if (tag == L_LABEL) {
+    }
+    else if (tag == L_LABEL) {
         lens->ktype = make_regexp_literal(info, lens->string->str);
         if (lens->ktype == NULL)
             goto error;
@@ -592,13 +600,13 @@ struct value *lns_make_prim(enum lens_tag tag, struct info *info,
     /* Set the vtype */
     if (tag == L_STORE) {
         lens->vtype = restrict_regexp(lens->regexp);
-    } else if (tag == L_VALUE) {
+    }
+    else if (tag == L_VALUE) {
         lens->vtype = make_regexp_literal(info, lens->string->str);
     }
 
     return make_lens_value(lens);
- error:
-    fa_free(fa_isect);
+    error: fa_free(fa_isect);
     fa_free(fa_key);
     fa_free(fa_slash);
     return exn;
@@ -607,13 +615,14 @@ struct value *lns_make_prim(enum lens_tag tag, struct info *info,
 /*
  * Typechecking of lenses
  */
-static struct value *disjoint_check(struct info *info, bool is_get,
-                                    struct regexp *r1, struct regexp *r2) {
+static struct value *
+disjoint_check(struct info *info, bool is_get, struct regexp *r1,
+        struct regexp *r2) {
     struct fa *fa1 = NULL;
     struct fa *fa2 = NULL;
     struct fa *fa = NULL;
     struct value *exn = NULL;
-    const char *const msg = is_get ? "union.get" : "tree union.put";
+    const char * const msg = is_get ? "union.get" : "tree union.put";
 
     if (r1 == NULL || r2 == NULL)
         return NULL;
@@ -627,19 +636,18 @@ static struct value *disjoint_check(struct info *info, bool is_get,
         goto done;
 
     fa = fa_intersect(fa1, fa2);
-    if (! fa_is_basic(fa, FA_EMPTY)) {
+    if (!fa_is_basic(fa, FA_EMPTY)) {
         size_t xmpl_len;
         char *xmpl;
         fa_example(fa, &xmpl, &xmpl_len);
-        if (! is_get) {
+        if (!is_get) {
             char *fmt = enc_format(xmpl, xmpl_len);
             if (fmt != NULL) {
                 FREE(xmpl);
                 xmpl = fmt;
             }
         }
-        exn = make_exn_value(ref(info),
-                             "overlapping lenses in %s", msg);
+        exn = make_exn_value(ref(info), "overlapping lenses in %s", msg);
 
         if (is_get)
             exn_printf_line(exn, "Example matched by both: '%s'", xmpl);
@@ -648,16 +656,15 @@ static struct value *disjoint_check(struct info *info, bool is_get,
         free(xmpl);
     }
 
- done:
-    fa_free(fa);
+    done: fa_free(fa);
     fa_free(fa1);
     fa_free(fa2);
 
     return exn;
 }
 
-static struct value *typecheck_union(struct info *info,
-                                     struct lens *l1, struct lens *l2) {
+static struct value *
+typecheck_union(struct info *info, struct lens *l1, struct lens *l2) {
     struct value *exn = NULL;
 
     exn = disjoint_check(info, true, l1->ctype, l2->ctype);
@@ -678,8 +685,8 @@ static struct value *typecheck_union(struct info *info,
 
 static struct value *
 ambig_check(struct info *info, struct fa *fa1, struct fa *fa2,
-            enum lens_type typ,  struct lens *l1, struct lens *l2,
-            const char *msg, bool iterated) {
+        enum lens_type typ, struct lens *l1, struct lens *l2, const char *msg,
+        bool iterated) {
     char *upv, *pv, *v;
     size_t upv_len;
     struct value *exn = NULL;
@@ -690,7 +697,8 @@ ambig_check(struct info *info, struct fa *fa1, struct fa *fa2,
         exn = make_exn_value(ref(info), "not enough memory");
         if (exn != NULL) {
             return exn;
-        } else {
+        }
+        else {
             ERR_REPORT(info, AUG_ENOMEM, NULL);
             return info->error->exn;
         }
@@ -708,7 +716,8 @@ ambig_check(struct info *info, struct fa *fa1, struct fa *fa2,
             e_v = enc_format(v, strlen(v));
             lns_format_atype(l1, &s1);
             lns_format_atype(l2, &s2);
-        } else {
+        }
+        else {
             e_u = escape(upv, pv - upv, RX_ESCAPES);
             e_up = escape(upv, v - upv, RX_ESCAPES);
             e_upv = escape(upv, -1, RX_ESCAPES);
@@ -720,7 +729,8 @@ ambig_check(struct info *info, struct fa *fa1, struct fa *fa2,
         exn = make_exn_value(ref(info), "%s", msg);
         if (iterated) {
             exn_printf_line(exn, "  Iterated regexp: /%s/", s1);
-        } else {
+        }
+        else {
             exn_printf_line(exn, "  First regexp: /%s/", s1);
             exn_printf_line(exn, "  Second regexp: /%s/", s2);
         }
@@ -741,8 +751,8 @@ ambig_check(struct info *info, struct fa *fa1, struct fa *fa2,
 }
 
 static struct value *
-ambig_concat_check(struct info *info, const char *msg,
-                   enum lens_type typ, struct lens *l1, struct lens *l2) {
+ambig_concat_check(struct info *info, const char *msg, enum lens_type typ,
+        struct lens *l1, struct lens *l2) {
     struct fa *fa1 = NULL;
     struct fa *fa2 = NULL;
     struct value *result = NULL;
@@ -761,21 +771,19 @@ ambig_concat_check(struct info *info, const char *msg,
         goto done;
 
     result = ambig_check(info, fa1, fa2, typ, l1, l2, msg, false);
- done:
-    fa_free(fa1);
+    done: fa_free(fa1);
     fa_free(fa2);
     return result;
 }
 
-static struct value *typecheck_concat(struct info *info,
-                                      struct lens *l1, struct lens *l2) {
+static struct value *
+typecheck_concat(struct info *info, struct lens *l1, struct lens *l2) {
     struct value *result = NULL;
 
-    result = ambig_concat_check(info, "ambiguous concatenation",
-                                CTYPE, l1, l2);
+    result = ambig_concat_check(info, "ambiguous concatenation", CTYPE, l1, l2);
     if (result == NULL) {
-        result = ambig_concat_check(info, "ambiguous tree concatenation",
-                                    ATYPE, l1, l2);
+        result = ambig_concat_check(info, "ambiguous tree concatenation", ATYPE,
+                l1, l2);
     }
     if (result != NULL) {
         char *fi = format_info(l1->info);
@@ -789,8 +797,76 @@ static struct value *typecheck_concat(struct info *info,
 }
 
 static struct value *
-ambig_iter_check(struct info *info, const char *msg,
-                 enum lens_type typ, struct lens *l) {
+make_exn_square(struct info *info, struct lens *l1, struct lens *l2,
+        const char *msg) {
+
+    struct value *exn = make_exn_value(ref(info), "%s",
+            "Inconsistency in lens square");
+    exn_printf_line(exn, "%s", msg);
+    char *fi = format_info(l1->info);
+    exn_printf_line(exn, "Left lens: %s", fi);
+    free(fi);
+    fi = format_info(l2->info);
+    exn_printf_line(exn, "Right lens: %s", fi);
+    free(fi);
+    return exn;
+}
+
+static struct value *
+typecheck_square(struct info *info, struct lens *l1, struct lens *l2) {
+    int r;
+    struct value *exn = NULL;
+    struct fa *fa1 = NULL, *fa2 = NULL;
+    struct regexp *r1 = ltype(l1, CTYPE);
+    struct regexp *r2 = ltype(l2, CTYPE);
+
+    if (r1 == NULL || r2 == NULL)
+        return NULL;
+
+    exn = regexp_to_fa(r1, &fa1);
+    if (exn != NULL)
+        goto done;
+
+    exn = regexp_to_fa(r2, &fa2);
+    if (exn != NULL)
+        goto done;
+
+    r = fa_equals(fa1, fa2);
+
+    if (r < 0) {
+        exn = make_exn_value(ref(info), "not enough memory");
+        if (exn != NULL) {
+            return exn;
+        }
+        else {
+            ERR_REPORT(info, AUG_ENOMEM, NULL);
+            return info->error->exn;;
+        }
+    }
+
+    if (r == 0) {
+        exn = make_exn_square(info, l1, l2,
+                "Left and right lenses must accept the same language");
+        goto done;
+    }
+
+    /* check del create consistency */
+    if (l1->tag == L_DEL && l2->tag == L_DEL) {
+        if (!STREQ(l1->string->str, l2->string->str)) {
+            exn = make_exn_square(info, l1, l2,
+                    "Left and right lenses must have the same default value");
+            goto done;
+        }
+    }
+
+    done: fa_free(fa1);
+    fa_free(fa2);
+    return exn;
+}
+
+static struct value *
+ambig_iter_check(struct info *info, const char *msg, enum lens_type typ,
+        struct lens *l) {
     struct fa *fas = NULL, *fa = NULL;
     struct value *result = NULL;
     struct regexp *r = ltype(l, typ);
@@ -806,13 +882,13 @@ ambig_iter_check(struct info *info, const char *msg,
 
     result = ambig_check(info, fa, fas, typ, l, l, msg, true);
 
- done:
-    fa_free(fa);
+    done: fa_free(fa);
     fa_free(fas);
     return result;
 }
 
-static struct value *typecheck_iter(struct info *info, struct lens *l) {
+static struct value *
+typecheck_iter(struct info *info, struct lens *l) {
     struct value *result = NULL;
 
     result = ambig_iter_check(info, "ambiguous iteration", CTYPE, l);
@@ -827,7 +903,8 @@ static struct value *typecheck_iter(struct info *info, struct lens *l) {
     return result;
 }
 
-static struct value *typecheck_maybe(struct info *info, struct lens *l) {
+static struct value *
+typecheck_maybe(struct info *info, struct lens *l) {
     /* Check (r)? as (<e>|r) where <e> is the empty language */
     struct value *exn = NULL;
 
@@ -838,21 +915,23 @@ static struct value *typecheck_maybe(struct info *info, struct lens *l) {
     }
 
     /* Typecheck the put direction; the check passes if
-       (1) the atype does not match the empty string, because we can tell
-           from looking at tree nodes whether L should be applied or not
-       (2) L handles a value; with that, we know whether to apply L or not
-           depending on whether the current node has a non NULL value or not
-    */
-    if (exn == NULL && ! l->consumes_value) {
+     (1) the atype does not match the empty string, because we can tell
+     from looking at tree nodes whether L should be applied or not
+     (2) L handles a value; with that, we know whether to apply L or not
+     depending on whether the current node has a non NULL value or not
+     */
+    if (exn == NULL && !l->consumes_value) {
         if (l->atype != NULL && regexp_matches_empty(l->atype)) {
-            exn = make_exn_value(ref(info),
-               "optional expression matches the empty tree but does not consume a value");
+            exn =
+                    make_exn_value(ref(info),
+                            "optional expression matches the empty tree but does not consume a value");
         }
     }
     return exn;
 }
 
-void free_lens(struct lens *lens) {
+void
+free_lens(struct lens *lens) {
     if (lens == NULL)
         return;
     ensure(lens->ref == 0, lens->info);
@@ -882,7 +961,7 @@ void free_lens(struct lens *lens) {
         break;
     case L_CONCAT:
     case L_UNION:
-        for (int i=0; i < lens->nchildren; i++)
+        for (int i = 0; i < lens->nchildren; i++)
             unref(lens->children[i], lens);
         free(lens->children);
         break;
@@ -896,33 +975,32 @@ void free_lens(struct lens *lens) {
         break;
     }
 
-    for (int t=0; t < ntypes; t++)
+    for (int t = 0; t < ntypes; t++)
         unref(ltype(lens, t), regexp);
 
     unref(lens->info, info);
     jmt_free(lens->jmt);
     free(lens);
- error:
-    return;
+    error: return;
 }
 
-void lens_release(struct lens *lens) {
+void
+lens_release(struct lens *lens) {
     if (lens == NULL)
         return;
 
-    for (int t=0; t < ntypes; t++)
+    for (int t = 0; t < ntypes; t++)
         regexp_release(ltype(lens, t));
 
     if (lens->tag == L_KEY || lens->tag == L_STORE)
         regexp_release(lens->regexp);
 
-    if (lens->tag == L_SUBTREE || lens->tag == L_STAR
-        || lens->tag == L_MAYBE) {
+    if (lens->tag == L_SUBTREE || lens->tag == L_STAR || lens->tag == L_MAYBE) {
         lens_release(lens->child);
     }
 
     if (lens->tag == L_UNION || lens->tag == L_CONCAT) {
-        for (int i=0; i < lens->nchildren; i++) {
+        for (int i = 0; i < lens->nchildren; i++) {
             lens_release(lens->children[i]);
         }
     }
@@ -934,20 +1012,21 @@ void lens_release(struct lens *lens) {
 /*
  * Encoding of tree levels
  */
-char *enc_format(const char *e, size_t len) {
+char *
+enc_format(const char *e, size_t len) {
     size_t size = 0;
     char *result = NULL, *r;
     const char *k = e;
 
     while (*k && k - e < len) {
-        char *eq,  *slash, *v;
+        char *eq, *slash, *v;
         eq = strchr(k, ENC_EQ_CH);
         assert(eq != NULL);
         slash = strchr(eq, ENC_SLASH_CH);
         assert(slash != NULL);
         v = eq + 1;
 
-        size += 6;     /* Surrounding braces */
+        size += 6; /* Surrounding braces */
         if (k != eq)
             size += 1 + (eq - k) + 1;
         if (v != slash)
@@ -960,7 +1039,7 @@ char *enc_format(const char *e, size_t len) {
     k = e;
     r = result;
     while (*k && k - e < len) {
-        char *eq,  *slash, *v;
+        char *eq, *slash, *v;
         eq = strchr(k, ENC_EQ_CH);
         slash = strchr(eq, ENC_SLASH_CH);
         assert(eq != NULL && slash != NULL);
@@ -973,7 +1052,7 @@ char *enc_format(const char *e, size_t len) {
             r = stpcpy(r, "\"");
         }
         if (v != slash) {
-            r = stpcpy (r, " = \"");
+            r = stpcpy(r, " = \"");
             r = stpncpy(r, v, slash - v);
             r = stpcpy(r, "\"");
         }
@@ -983,7 +1062,8 @@ char *enc_format(const char *e, size_t len) {
     return result;
 }
 
-static int lns_format_subtree_atype(struct lens *l, char **buf) {
+static int
+lns_format_subtree_atype(struct lens *l, char **buf) {
     char *k = NULL, *v = NULL;
     const struct regexp *ktype = l->child->ktype;
     const struct regexp *vtype = l->child->vtype;
@@ -1002,7 +1082,8 @@ static int lns_format_subtree_atype(struct lens *l, char **buf) {
             r = xasprintf(buf, "{ = /%s/ }", k, v);
         else
             r = xasprintf(buf, "{ /%s/ = /%s/ }", k, v);
-    } else {
+    }
+    else {
         if (k == NULL)
             r = xasprintf(buf, "{ }", k);
         else
@@ -1012,13 +1093,14 @@ static int lns_format_subtree_atype(struct lens *l, char **buf) {
         goto done;
 
     result = 0;
- done:
+    done:
     FREE(v);
     FREE(k);
     return result;
 }
 
-static int lns_format_rep_atype(struct lens *l, char **buf, char quant) {
+static int
+lns_format_rep_atype(struct lens *l, char **buf, char quant) {
     char *a = NULL;
     int r, result = -1;
 
@@ -1041,12 +1123,13 @@ static int lns_format_rep_atype(struct lens *l, char **buf, char quant) {
         goto done;
 
     result = 0;
- done:
+    done:
     FREE(a);
     return result;
 }
 
-static int lns_format_concat_atype(struct lens *l, char **buf) {
+static int
+lns_format_concat_atype(struct lens *l, char **buf) {
     char **c = NULL, *s = NULL, *p;
     int r, result = -1;
     size_t len = 0, nconc = 0;
@@ -1054,8 +1137,8 @@ static int lns_format_concat_atype(struct lens *l, char **buf) {
     if (ALLOC_N(c, l->nchildren) < 0)
         goto done;
 
-    for (int i=0; i < l->nchildren; i++) {
-        r = lns_format_atype(l->children[i], c+i);
+    for (int i = 0; i < l->nchildren; i++) {
+        r = lns_format_atype(l->children[i], c + i);
         if (r < 0)
             goto done;
         len += strlen(c[i]) + 2;
@@ -1068,7 +1151,7 @@ static int lns_format_concat_atype(struct lens *l, char **buf) {
     if (ALLOC_N(s, len+1) < 0)
         goto done;
     p = s;
-    for (int i=0; i < l->nchildren; i++) {
+    for (int i = 0; i < l->nchildren; i++) {
         bool needs_parens = nconc > 1 && l->children[i]->tag == L_UNION;
         if (strlen(c[i]) == 0)
             continue;
@@ -1082,16 +1165,16 @@ static int lns_format_concat_atype(struct lens *l, char **buf) {
     *buf = s;
     s = NULL;
     result = 0;
- done:
-    if (c != NULL)
-        for (int i=0; i < l->nchildren; i++)
+    done: if (c != NULL)
+        for (int i = 0; i < l->nchildren; i++)
             FREE(c[i]);
     FREE(c);
     FREE(s);
     return result;
 }
 
-static int lns_format_union_atype(struct lens *l, char **buf) {
+static int
+lns_format_union_atype(struct lens *l, char **buf) {
     char **c = NULL, *s = NULL, *p;
     int r, result = -1;
     size_t len = 0;
@@ -1099,8 +1182,8 @@ static int lns_format_union_atype(struct lens *l, char **buf) {
     if (ALLOC_N(c, l->nchildren) < 0)
         goto done;
 
-    for (int i=0; i < l->nchildren; i++) {
-        r = lns_format_atype(l->children[i], c+i);
+    for (int i = 0; i < l->nchildren; i++) {
+        r = lns_format_atype(l->children[i], c + i);
         if (r < 0)
             goto done;
         len += strlen(c[i]) + 2;
@@ -1111,7 +1194,7 @@ static int lns_format_union_atype(struct lens *l, char **buf) {
         goto done;
 
     p = s;
-    for (int i=0; i < l->nchildren; i++) {
+    for (int i = 0; i < l->nchildren; i++) {
         if (i > 0)
             p = stpcpy(p, " | ");
         if (strlen(c[i]) == 0)
@@ -1122,16 +1205,16 @@ static int lns_format_union_atype(struct lens *l, char **buf) {
     *buf = s;
     s = NULL;
     result = 0;
- done:
-    if (c != NULL)
-        for (int i=0; i < l->nchildren; i++)
+    done: if (c != NULL)
+        for (int i = 0; i < l->nchildren; i++)
             FREE(c[i]);
     FREE(c);
     FREE(s);
     return result;
 }
 
-static int lns_format_rec_atype(struct lens *l, char **buf) {
+static int
+lns_format_rec_atype(struct lens *l, char **buf) {
     int r;
 
     if (l->rec_internal) {
@@ -1148,10 +1231,11 @@ static int lns_format_rec_atype(struct lens *l, char **buf) {
     return (r < 0) ? -1 : 0;
 }
 
-int lns_format_atype(struct lens *l, char **buf) {
+int
+lns_format_atype(struct lens *l, char **buf) {
     *buf = NULL;
 
-    switch(l->tag) {
+    switch (l->tag) {
     case L_DEL:
     case L_STORE:
     case L_KEY:
@@ -1193,7 +1277,8 @@ int lns_format_atype(struct lens *l, char **buf) {
 /*
  * Recursive lenses
  */
-struct value *lns_make_rec(struct info *info) {
+struct value *
+lns_make_rec(struct info *info) {
     struct lens *l = make_lens(L_REC, info);
     l->recursive = 1;
     l->rec_internal = 1;
@@ -1254,21 +1339,21 @@ struct value *lns_make_rec(struct info *info) {
  * nonterminals in, we remember the production for the nonterminal in PROD.
  */
 struct trans {
-    struct state  *to;
-    struct lens   *lens;
+    struct state *to;
+    struct lens *lens;
     struct regexp *re;
 };
 
 struct state {
-    struct state  *next;   /* Linked list for memory management */
-    size_t         ntrans;
-    struct trans  *trans;
+    struct state *next; /* Linked list for memory management */
+    size_t ntrans;
+    struct trans *trans;
 };
 
 /* Productions for lens LENS. Start state START and end state END. If we
-   start with START, END is the only accepting state. */
+ start with START, END is the only accepting state. */
 struct prod {
-    struct lens  *lens;
+    struct lens *lens;
     struct state *start;
     struct state *end;
 };
@@ -1277,48 +1362,52 @@ struct prod {
  * to the types */
 struct rtn {
     struct info *info;
-    size_t        nprod;
+    size_t nprod;
     struct prod **prod;
-    struct state *states;  /* Linked list through next of all states in all
-                              prods; the states for each production are on
-                              the part of the list from prod->start to
-                              prod->end */
+    struct state *states; /* Linked list through next of all states in all
+     prods; the states for each production are on
+     the part of the list from prod->start to
+     prod->end */
     struct value *exn;
     enum lens_type lens_type;
-    unsigned int check : 1;
+    unsigned int check :1;
 };
 
 #define RTN_BAIL(rtn) if ((rtn)->exn != NULL ||                     \
                           (rtn)->info->error->code != AUG_NOERROR)  \
                          goto error;
 
-static void free_prod(struct prod *prod) {
+static void
+free_prod(struct prod *prod) {
     if (prod == NULL)
         return;
     unref(prod->lens, lens);
     free(prod);
 }
 
-static void free_rtn(struct rtn *rtn) {
+static void
+free_rtn(struct rtn *rtn) {
     if (rtn == NULL)
         return;
-    for (int i=0; i < rtn->nprod; i++)
+    for (int i = 0; i < rtn->nprod; i++)
         free_prod(rtn->prod[i]);
     free(rtn->prod);
-    list_for_each(s, rtn->states) {
+    list_for_each(s, rtn->states)
+{
         for (int i=0; i < s->ntrans; i++) {
             unref(s->trans[i].lens, lens);
             unref(s->trans[i].re, regexp);
         }
         free(s->trans);
     }
-    list_free(rtn->states);
+        list_free(rtn->states);
     unref(rtn->info, info);
     unref(rtn->exn, value);
     free(rtn);
 }
 
-static struct state *add_state(struct prod *prod) {
+static struct state *
+add_state(struct prod *prod) {
     struct state *result = NULL;
     int r;
 
@@ -1326,16 +1415,16 @@ static struct state *add_state(struct prod *prod) {
     ERR_NOMEM(r < 0, prod->lens->info);
 
     list_cons(prod->start->next, result);
- error:
-    return result;
+    error: return result;
 }
 
-static struct trans *add_trans(struct rtn *rtn, struct state *state,
-                               struct state *to, struct lens *l) {
+static struct trans *
+add_trans(struct rtn *rtn, struct state *state, struct state *to,
+        struct lens *l) {
     int r;
     struct trans *result = NULL;
 
-    for (int i=0; i < state->ntrans; i++)
+    for (int i = 0; i < state->ntrans; i++)
         if (state->trans[i].to == to && state->trans[i].lens == l)
             return state->trans + i;
 
@@ -1351,11 +1440,11 @@ static struct trans *add_trans(struct rtn *rtn, struct state *state,
         result->lens = ref(l);
         result->re = ref(ltype(l, rtn->lens_type));
     }
- error:
-    return result;
+    error: return result;
 }
 
-static struct prod *make_prod(struct rtn *rtn, struct lens *l) {
+static struct prod *
+make_prod(struct rtn *rtn, struct lens *l) {
     struct prod *result = NULL;
     int r;
 
@@ -1373,22 +1462,23 @@ static struct prod *make_prod(struct rtn *rtn, struct lens *l) {
     rtn->states = result->start;
 
     return result;
- error:
-    free_prod(result);
+    error: free_prod(result);
     return NULL;
 }
 
-static struct prod *prod_for_lens(struct rtn *rtn, struct lens *l) {
+static struct prod *
+prod_for_lens(struct rtn *rtn, struct lens *l) {
     if (l == NULL)
         return NULL;
-    for (int i=0; i < rtn->nprod; i++) {
+    for (int i = 0; i < rtn->nprod; i++) {
         if (rtn->prod[i]->lens == l)
             return rtn->prod[i];
     }
     return NULL;
 }
 
-static void rtn_dot(struct rtn *rtn, const char *stage) {
+static void
+rtn_dot(struct rtn *rtn, const char *stage) {
     FILE *fp;
     int r = 0;
 
@@ -1397,12 +1487,14 @@ static void rtn_dot(struct rtn *rtn, const char *stage) {
         return;
 
     fprintf(fp, "digraph \"l1\" {\n  rankdir=LR;\n");
-    list_for_each(s, rtn->states) {
+    list_for_each(s, rtn->states)
+    {
         char *label = NULL;
         for (int p=0; p < rtn->nprod; p++) {
             if (s == rtn->prod[p]->start) {
                 r = xasprintf(&label, "s%d", p);
-            } else if (s == rtn->prod[p]->end) {
+            }
+            else if (s == rtn->prod[p]->end) {
                 r = xasprintf(&label, "e%d", p);
             }
             ERR_NOMEM(r < 0, rtn->info);
@@ -1418,22 +1510,22 @@ static void rtn_dot(struct rtn *rtn, const char *stage) {
             if (s->trans[i].re != NULL) {
                 label = regexp_escape(s->trans[i].re);
                 for (char *t = label; *t; t++)
-                    if (*t == '\\')
-                        *t = '~';
+                if (*t == '\\')
+                *t = '~';
                 fprintf(fp, " [ label = \"%s\" ]", label);
                 FREE(label);
             }
             fprintf(fp, ";\n");
         }
     }
- error:
-    fprintf(fp, "}\n");
+    error: fprintf(fp, "}\n");
     fclose(fp);
 }
 
 /* Add transitions to RTN corresponding to cfg(l, N) */
-static void rtn_rules(struct rtn *rtn, struct lens *l) {
-    if (! l->recursive)
+static void
+rtn_rules(struct rtn *rtn, struct lens *l) {
+    if (!l->recursive)
         return;
 
     struct prod *prod = prod_for_lens(rtn, l);
@@ -1443,7 +1535,7 @@ static void rtn_rules(struct rtn *rtn, struct lens *l) {
     int r = REALLOC_N(rtn->prod, rtn->nprod+1);
     ERR_NOMEM(r < 0, l->info);
 
-    prod =  make_prod(rtn, l);
+    prod = make_prod(rtn, l);
     rtn->prod[rtn->nprod] = prod;
     RTN_BAIL(rtn);
     rtn->nprod += 1;
@@ -1453,7 +1545,7 @@ static void rtn_rules(struct rtn *rtn, struct lens *l) {
     switch (l->tag) {
     case L_UNION:
         /* cfg(l1|..|ln, N) -> N := N1 | N2 | ... | Nn */
-        for (int i=0; i < l->nchildren; i++) {
+        for (int i = 0; i < l->nchildren; i++) {
             add_trans(rtn, start, prod->end, l->children[i]);
             RTN_BAIL(rtn);
             rtn_rules(rtn, l->children[i]);
@@ -1462,7 +1554,7 @@ static void rtn_rules(struct rtn *rtn, struct lens *l) {
         break;
     case L_CONCAT:
         /* cfg(l1 . l2 ... ln, N) -> N := N1 . N2 ... Nn */
-        for (int i=0; i < l->nchildren-1; i++) {
+        for (int i = 0; i < l->nchildren - 1; i++) {
             struct state *s = add_state(prod);
             RTN_BAIL(rtn);
             add_trans(rtn, start, s, l->children[i]);
@@ -1536,45 +1628,49 @@ static void rtn_rules(struct rtn *rtn, struct lens *l) {
         rtn_rules(rtn, l->body);
         RTN_BAIL(rtn);
         break;
+    case L_SQUARE:
+        add_trans(rtn, start, prod->end, l->child);
+        RTN_BAIL(rtn);
+        break;
     default:
         BUG_LENS_TAG(l);
         break;
     }
- error:
-    return;
+    error: return;
 }
 
 /* Replace transition t with two epsilon transitions s => p->start and
  * p->end => s->trans[i].to where s is the start of t. Instead of adding
  * epsilon transitions, we expand the epsilon transitions.
  */
-static void prod_splice(struct rtn *rtn,
-                        struct prod *from, struct prod *to, struct trans *t) {
+static void
+prod_splice(struct rtn *rtn, struct prod *from, struct prod *to,
+        struct trans *t) {
 
     add_trans(rtn, to->end, t->to, NULL);
     ERR_BAIL(from->lens->info);
     t->to = to->start;
     unref(t->re, regexp);
 
- error:
-    return;
+    error: return;
 }
 
-static void rtn_splice(struct rtn *rtn, struct prod *prod) {
+static void
+rtn_splice(struct rtn *rtn, struct prod *prod) {
     for (struct state *s = prod->start; s != prod->end; s = s->next) {
-        for (int i=0; i < s->ntrans; i++) {
+        for (int i = 0; i < s->ntrans; i++) {
             struct prod *p = prod_for_lens(rtn, s->trans[i].lens);
             if (p != NULL) {
-                prod_splice(rtn, prod, p, s->trans+i);
+                prod_splice(rtn, prod, p, s->trans + i);
                 RTN_BAIL(rtn);
             }
         }
     }
- error:
-    return;
+    error: return;
 }
 
-static struct rtn *rtn_build(struct lens *rec, enum lens_type lt) {
+static struct rtn *
+rtn_build(struct lens *rec, enum lens_type lt) {
     int r;
     struct rtn *rtn;
 
@@ -1589,19 +1685,19 @@ static struct rtn *rtn_build(struct lens *rec, enum lens_type lt) {
     if (debugging("cf.approx"))
         rtn_dot(rtn, "10-rules");
 
-    for (int i=0; i < rtn->nprod; i++) {
+    for (int i = 0; i < rtn->nprod; i++) {
         rtn_splice(rtn, rtn->prod[i]);
         RTN_BAIL(rtn);
     }
     if (debugging("cf.approx"))
         rtn_dot(rtn, "11-splice");
 
- error:
-    return rtn;
+    error: return rtn;
 }
 
 /* Compare transitions lexicographically by (to, lens) */
-static int trans_to_cmp(const void *v1, const void *v2) {
+static int
+trans_to_cmp(const void *v1, const void *v2) {
     const struct trans *t1 = v1;
     const struct trans *t2 = v2;
 
@@ -1618,15 +1714,14 @@ static int trans_to_cmp(const void *v1, const void *v2) {
  * existing transition S1 -> S2. If LOOP is NULL or R3 does not exist,
  * label the transition with a simplified regexp by treating NULL as
  * epsilon */
-static void collapse_trans(struct rtn *rtn,
-                           struct state *s1, struct state *s2,
-                           struct regexp *r1, struct regexp *loop,
-                           struct regexp *r2) {
+static void
+collapse_trans(struct rtn *rtn, struct state *s1, struct state *s2,
+        struct regexp *r1, struct regexp *loop, struct regexp *r2) {
 
     struct trans *t = NULL;
     struct regexp *r = NULL;
 
-    for (int i=0; i < s1->ntrans; i++) {
+    for (int i = 0; i < s1->ntrans; i++) {
         if (s1->trans[i].to == s2) {
             t = s1->trans + i;
             break;
@@ -1641,14 +1736,16 @@ static void collapse_trans(struct rtn *rtn,
             r = ref(r1);
         else
             r = regexp_concat(rtn->info, r1, r2);
-    } else {
+    }
+    else {
         struct regexp *s = regexp_iter(rtn->info, loop, 0, -1);
         ERR_NOMEM(s == NULL, rtn->info);
         struct regexp *c = NULL;
         if (r1 == NULL) {
             c = s;
             s = NULL;
-        } else {
+        }
+        else {
             c = regexp_concat(rtn->info, r1, s);
             unref(s, regexp);
             ERR_NOMEM(c == NULL, rtn->info);
@@ -1656,7 +1753,8 @@ static void collapse_trans(struct rtn *rtn,
         if (r2 == NULL) {
             r = c;
             c = NULL;
-        } else {
+        }
+        else {
             r = regexp_concat(rtn->info, c, r2);
             unref(c, regexp);
             ERR_NOMEM(r == NULL, rtn->info);
@@ -1667,7 +1765,8 @@ static void collapse_trans(struct rtn *rtn,
         t = add_trans(rtn, s1, s2, NULL);
         ERR_NOMEM(t == NULL, rtn->info);
         t->re = r;
-    } else if (t->re == NULL) {
+    }
+    else if (t->re == NULL) {
         if (r == NULL || regexp_matches_empty(r))
             t->re = r;
         else {
@@ -1675,14 +1774,16 @@ static void collapse_trans(struct rtn *rtn,
             unref(r, regexp);
             ERR_NOMEM(t->re == NULL, rtn->info);
         }
-    } else if (r == NULL) {
+    }
+    else if (r == NULL) {
         if (!regexp_matches_empty(t->re)) {
             r = regexp_maybe(rtn->info, t->re);
             unref(t->re, regexp);
             t->re = r;
             ERR_NOMEM(r == NULL, rtn->info);
         }
-    } else {
+    }
+    else {
         struct regexp *u = regexp_union(rtn->info, r, t->re);
         unref(r, regexp);
         unref(t->re, regexp);
@@ -1691,8 +1792,7 @@ static void collapse_trans(struct rtn *rtn,
     }
 
     return;
- error:
-    rtn->exn = rtn->info->error->exn;
+    error: rtn->exn = rtn->info->error->exn;
     return;
 }
 
@@ -1703,37 +1803,39 @@ static void collapse_trans(struct rtn *rtn,
  *
  * This is the same algorithm as fa_as_regexp in fa.c
  */
-static struct regexp *rtn_reduce(struct rtn *rtn, struct lens *rec) {
+static struct regexp *
+rtn_reduce(struct rtn *rtn, struct lens *rec) {
     struct prod *prod = prod_for_lens(rtn, rec);
     int r;
 
     ERR_THROW(prod == NULL, rtn->info, AUG_EINTERNAL,
-              "No production for recursive lens");
+            "No production for recursive lens");
 
     /* Eliminate epsilon transitions and turn transitions between the same
      * two states into a regexp union */
-    list_for_each(s, rtn->states) {
+    list_for_each(s, rtn->states)
+    {
         qsort(s->trans, s->ntrans, sizeof(*s->trans), trans_to_cmp);
         for (int i=0; i < s->ntrans; i++) {
             int j = i+1;
             for (;j < s->ntrans && s->trans[i].to == s->trans[j].to;
-                 j++);
+                    j++);
             if (j > i+1) {
                 struct regexp *u, **v;
                 r = ALLOC_N(v, j - i);
                 ERR_NOMEM(r < 0, rtn->info);
                 for (int k=i; k < j; k++)
-                    v[k-i] = s->trans[k].re;
+                v[k-i] = s->trans[k].re;
                 u = regexp_union_n(rtn->info, j - i, v);
                 if (u == NULL) {
                     // FIXME: The calling convention for regexp_union_n
                     // is bad, since we can't distinguish between alloc
                     // failure and unioning all NULL's
                     for (int k=0; k < j-i; k++)
-                        if (v[k] != NULL) {
-                            FREE(v);
-                            ERR_NOMEM(true, rtn->info);
-                        }
+                    if (v[k] != NULL) {
+                        FREE(v);
+                        ERR_NOMEM(true, rtn->info);
+                    }
                 }
                 FREE(v);
                 for (int k=i; k < j; k++) {
@@ -1781,9 +1883,10 @@ static struct regexp *rtn_reduce(struct rtn *rtn, struct lens *rec) {
      *        set the regexp on the transition S1 -> S2 to
      *          R1 . (LOOP)* . R2 | R3 */
     // FIXME: This does not go over all states
-    list_for_each(s, rtn->states) {
+    list_for_each(s, rtn->states)
+    {
         if (s == prod->end || s == prod->start)
-            continue;
+        continue;
         struct regexp *loop = NULL;
         for (int i=0; i < s->ntrans; i++) {
             if (s == s->trans[i].to) {
@@ -1793,16 +1896,16 @@ static struct regexp *rtn_reduce(struct rtn *rtn, struct lens *rec) {
         }
         list_for_each(s1, rtn->states) {
             if (s == s1)
-                continue;
+            continue;
             for (int t1=0; t1 < s1->ntrans; t1++) {
                 if (s == s1->trans[t1].to) {
                     for (int t2=0; t2 < s->ntrans; t2++) {
                         struct state *s2 = s->trans[t2].to;
                         if (s2 == s)
-                            continue;
+                        continue;
                         collapse_trans(rtn, s1, s2,
-                                       s1->trans[t1].re, loop,
-                                       s->trans[t2].re);
+                                s1->trans[t1].re, loop,
+                                s->trans[t2].re);
                         RTN_BAIL(rtn);
                     }
                 }
@@ -1812,29 +1915,29 @@ static struct regexp *rtn_reduce(struct rtn *rtn, struct lens *rec) {
 
     /* Find the overall regexp */
     struct regexp *result = NULL;
-    for (int i=0; i < prod->start->ntrans; i++) {
+    for (int i = 0; i < prod->start->ntrans; i++) {
         if (prod->start->trans[i].to == prod->end) {
             ensure(result == NULL, rtn->info);
             result = ref(prod->start->trans[i].re);
         }
     }
     return result;
- error:
-    return NULL;
+    error: return NULL;
 }
 
-static void propagate_type(struct lens *l, enum lens_type lt) {
+static void
+propagate_type(struct lens *l, enum lens_type lt) {
     struct regexp **types = NULL;
     int r;
 
-    if (! l->recursive || ltype(l, lt) != NULL)
+    if (!l->recursive || ltype(l, lt) != NULL)
         return;
 
-    switch(l->tag) {
+    switch (l->tag) {
     case L_CONCAT:
         r = ALLOC_N(types, l->nchildren);
         ERR_NOMEM(r < 0, l->info);
-        for (int i=0; i < l->nchildren; i++) {
+        for (int i = 0; i < l->nchildren; i++) {
             propagate_type(l->children[i], lt);
             types[i] = ltype(l->children[i], lt);
         }
@@ -1844,7 +1947,7 @@ static void propagate_type(struct lens *l, enum lens_type lt) {
     case L_UNION:
         r = ALLOC_N(types, l->nchildren);
         ERR_NOMEM(r < 0, l->info);
-        for (int i=0; i < l->nchildren; i++) {
+        for (int i = 0; i < l->nchildren; i++) {
             propagate_type(l->children[i], lt);
             types[i] = ltype(l->children[i], lt);
         }
@@ -1878,46 +1981,48 @@ static void propagate_type(struct lens *l, enum lens_type lt) {
         break;
     }
 
- error:
+    error:
     FREE(types);
 }
 
-static struct value *typecheck(struct lens *l, int check);
+static struct value *
+typecheck(struct lens *l, int check);
 
-typedef struct value *typecheck_n_make(struct info *,
-                                       struct lens *, struct lens *, int);
+typedef struct value *
+typecheck_n_make(struct info *, struct lens *, struct lens *, int);
 
-static struct info *merge_info(struct info *i1, struct info *i2) {
+static struct info *
+merge_info(struct info *i1, struct info *i2) {
     struct info *info;
-    make_ref(info);
-    ERR_NOMEM(info == NULL, i1);
+make_ref(info);
+        ERR_NOMEM(info == NULL, i1);
 
     info->filename = ref(i1->filename);
     info->first_line = i1->first_line;
     info->first_column = i1->first_column;
-    info->last_line    = i2->last_line;
-    info->last_column  = i2->last_column;
-    info->error        = i1->error;
+    info->last_line = i2->last_line;
+    info->last_column = i2->last_column;
+    info->error = i1->error;
     return info;
 
- error:
+    error:
     unref(info, info);
     return NULL;
 }
 
-static struct value *typecheck_n(struct lens *l,
-                                 typecheck_n_make *make, int check) {
+static struct value *
+typecheck_n(struct lens *l, typecheck_n_make *make, int check) {
     struct value *exn = NULL;
     struct lens *acc = NULL;
 
     ensure(l->tag == L_CONCAT || l->tag == L_UNION, l->info);
-    for (int i=0; i < l->nchildren; i++) {
+    for (int i = 0; i < l->nchildren; i++) {
         exn = typecheck(l->children[i], check);
         if (exn != NULL)
             goto error;
     }
     acc = ref(l->children[0]);
-    for (int i=1; i < l->nchildren; i++) {
+    for (int i = 1; i < l->nchildren; i++) {
         struct info *info = merge_info(acc->info, l->children[i]->info);
         ERR_BAIL(acc->info);
         exn = (*make)(info, acc, ref(l->children[i]), check);
@@ -1929,19 +2034,20 @@ static struct value *typecheck_n(struct lens *l,
     }
     l->value = acc->value;
     l->key = acc->key;
- error:
+    error:
     unref(acc, lens);
     return exn;
 }
 
-static struct value *typecheck(struct lens *l, int check) {
+static struct value *
+typecheck(struct lens *l, int check) {
     struct value *exn = NULL;
 
     /* Nonrecursive lenses are typechecked at build time */
-    if (! l->recursive)
+    if (!l->recursive)
         return NULL;
 
-    switch(l->tag) {
+    switch (l->tag) {
     case L_CONCAT:
         exn = typecheck_n(l, lns_make_concat, check);
         break;
@@ -1977,7 +2083,8 @@ static struct value *typecheck(struct lens *l, int check) {
     return exn;
 }
 
-static struct value *rtn_approx(struct lens *rec, enum lens_type lt) {
+static struct value *
+rtn_approx(struct lens *rec, enum lens_type lt) {
     struct rtn *rtn = NULL;
     struct value *result = NULL;
 
@@ -1991,8 +2098,7 @@ static struct value *rtn_approx(struct lens *rec, enum lens_type lt) {
     propagate_type(rec->body, lt);
     ERR_BAIL(rec->info);
 
- done:
-    free_rtn(rtn);
+    done: free_rtn(rtn);
 
     if (debugging("cf.approx")) {
         printf("approx %s  => ", lens_type_names[lt]);
@@ -2001,8 +2107,7 @@ static struct value *rtn_approx(struct lens *rec, enum lens_type lt) {
     }
 
     return result;
- error:
-    if (rtn->exn == NULL)
+    error: if (rtn->exn == NULL)
         result = rec->info->error->exn;
     else
         result = ref(rtn->exn);
@@ -2010,13 +2115,12 @@ static struct value *rtn_approx(struct lens *rec, enum lens_type lt) {
 }
 
 static struct value *
-exn_multiple_epsilons(struct lens *lens,
-                      struct lens *l1, struct lens *l2) {
+exn_multiple_epsilons(struct lens *lens, struct lens *l1, struct lens *l2) {
     char *fi = NULL;
     struct value *exn = NULL;
 
     exn = make_exn_value(ref(lens->info),
-                         "more than one nullable branch in a union");
+            "more than one nullable branch in a union");
     fi = format_info(l1->info);
     exn_printf_line(exn, "First nullable lens: %s", fi);
     FREE(fi);
@@ -2030,32 +2134,33 @@ exn_multiple_epsilons(struct lens *lens,
 
 /* Update lens->ctype_nullable and return 1 if there was a change,
  * 0 if there was none */
-static int ctype_nullable(struct lens *lens, struct value **exn) {
+static int
+ctype_nullable(struct lens *lens, struct value **exn) {
     int nullable = 0;
     int ret = 0;
     struct lens *null_lens = NULL;
 
-    if (! lens->recursive)
+    if (!lens->recursive)
         return 0;
 
-    switch(lens->tag) {
+    switch (lens->tag) {
     case L_CONCAT:
         nullable = 1;
-        for (int i=0; i < lens->nchildren; i++) {
+        for (int i = 0; i < lens->nchildren; i++) {
             if (ctype_nullable(lens->children[i], exn))
                 ret = 1;
-            if (! lens->children[i]->ctype_nullable)
+            if (!lens->children[i]->ctype_nullable)
                 nullable = 0;
         }
         break;
     case L_UNION:
-        for (int i=0; i < lens->nchildren; i++) {
+        for (int i = 0; i < lens->nchildren; i++) {
             if (ctype_nullable(lens->children[i], exn))
                 ret = 1;
             if (lens->children[i]->ctype_nullable) {
                 if (nullable) {
                     *exn = exn_multiple_epsilons(lens, null_lens,
-                                                 lens->children[i]);
+                            lens->children[i]);
                     return 0;
                 }
                 nullable = 1;
@@ -2088,9 +2193,8 @@ static int ctype_nullable(struct lens *lens, struct value **exn) {
     return ret;
 }
 
-struct value *lns_check_rec(struct info *info,
-                            struct lens *body, struct lens *rec,
-                            int check) {
+struct value *
+lns_check_rec(struct info *info, struct lens *body, struct lens *rec, int check) {
     /* The types in the order of approximation */
     static const enum lens_type types[] = { KTYPE, VTYPE, ATYPE };
     struct value *result = NULL;
@@ -2099,7 +2203,7 @@ struct value *lns_check_rec(struct info *info,
     ensure(rec->rec_internal, info);
 
     /* The user might have written down a regular lens with 'let rec' */
-    if (! body->recursive) {
+    if (!body->recursive) {
         result = make_lens_value(ref(body));
         ERR_NOMEM(result == NULL, info);
         return result;
@@ -2113,17 +2217,17 @@ struct value *lns_check_rec(struct info *info,
      * The internal instance of the recursive lens is REC, the external one
      * is TOP, constructed below
      */
-    rec->body = body;                          /* REC does not own BODY */
+    rec->body = body; /* REC does not own BODY */
 
-    for (int i=0; i < ARRAY_CARDINALITY(types); i++) {
+    for (int i = 0; i < ARRAY_CARDINALITY(types); i++) {
         result = rtn_approx(rec, types[i]);
         ERR_BAIL(info);
     }
 
     if (rec->atype == NULL) {
         result = make_exn_value(ref(rec->info),
-        "recursive lens generates the empty language for its %s",
-         rec->ctype == NULL ? "ctype" : "atype");
+                "recursive lens generates the empty language for its %s",
+                rec->ctype == NULL ? "ctype" : "atype");
         goto error;
     }
 
@@ -2131,7 +2235,8 @@ struct value *lns_check_rec(struct info *info,
     rec->value = rec->body->value;
     rec->consumes_value = rec->body->consumes_value;
 
-    while(ctype_nullable(rec->body, &result));
+    while (ctype_nullable(rec->body, &result))
+        ;
     if (result != NULL)
         goto error;
     rec->ctype_nullable = rec->body->ctype_nullable;
@@ -2142,7 +2247,7 @@ struct value *lns_check_rec(struct info *info,
 
     result = lns_make_rec(ref(rec->info));
     struct lens *top = result->lens;
-    for (int t=0; t < ntypes; t++)
+    for (int t = 0; t < ntypes; t++)
         ltype(top, t) = ref(ltype(rec, t));
     top->value = rec->value;
     top->key = rec->key;
@@ -2157,8 +2262,7 @@ struct value *lns_check_rec(struct info *info,
     ERR_BAIL(info);
 
     return result;
- error:
-    if (result != NULL && result->tag != V_EXN)
+    error: if (result != NULL && result->tag != V_EXN)
         unref(result, value);
     if (result == NULL)
         result = info->error->exn;
@@ -2166,7 +2270,8 @@ struct value *lns_check_rec(struct info *info,
 }
 
 #if ENABLE_DEBUG
-void dump_lens_tree(struct lens *lens){
+void
+dump_lens_tree(struct lens *lens) {
     static int count = 0;
     FILE *fp;
 
@@ -2181,27 +2286,29 @@ void dump_lens_tree(struct lens *lens){
     fclose(fp);
 }
 
-void dump_lens(FILE *out, struct lens *lens){
+void
+dump_lens(FILE *out, struct lens *lens) {
     int i = 0;
     struct regexp *re;
 
     fprintf(out, "\"%p\" [ shape = box, label = \"%s\\n", lens, ltag(lens));
 
-    for (int t=0; t < ntypes; t++) {
+    for (int t = 0; t < ntypes; t++) {
         re = ltype(lens, t);
         if (re == NULL)
             continue;
-        fprintf(out, "%s=",lens_type_names[t]);
+        fprintf(out, "%s=", lens_type_names[t]);
         print_regexp(out, re);
         fprintf(out, "\\n");
     }
 
+    fprintf(out, "ref=%x\\n", lens->ref);
     fprintf(out, "recursive=%x\\n", lens->recursive);
     fprintf(out, "rec_internal=%x\\n", lens->rec_internal);
     fprintf(out, "consumes_value=%x\\n", lens->consumes_value);
     fprintf(out, "ctype_nullable=%x\\n", lens->ctype_nullable);
     fprintf(out, "\"];\n");
-    switch(lens->tag){
+    switch (lens->tag) {
     case L_DEL:
         break;
     case L_STORE:
@@ -2217,13 +2324,13 @@ void dump_lens(FILE *out, struct lens *lens){
     case L_COUNTER:
         break;
     case L_CONCAT:
-        for(i = 0; i<lens->nchildren;i++){
+        for (i = 0; i < lens->nchildren; i++) {
             fprintf(out, "\"%p\" -> \"%p\"\n", lens, lens->children[i]);
             dump_lens(out, lens->children[i]);
         }
         break;
     case L_UNION:
-        for(i = 0; i<lens->nchildren;i++){
+        for (i = 0; i < lens->nchildren; i++) {
             fprintf(out, "\"%p\" -> \"%p\"\n", lens, lens->children[i]);
             dump_lens(out, lens->children[i]);
         }
@@ -2243,7 +2350,7 @@ void dump_lens(FILE *out, struct lens *lens){
 
         break;
     case L_REC:
-        if (lens->rec_internal == 0){
+        if (lens->rec_internal == 0) {
             fprintf(out, "\"%p\" -> \"%p\"\n", lens, lens->child);
             dump_lens(out, lens->body);
         }
