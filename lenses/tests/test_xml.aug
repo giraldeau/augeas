@@ -184,6 +184,21 @@ test Xml.attributes get " refs=\"A1\nA2  A3\"" =
 test Xml.attributes put attr1 after rm "/#attribute[1]";
                                     set "/#attribute/attr2" "foo" = attr2
 
+(* test quoting *)
+(* well formed values *)
+test Xml.attributes get " attr1=\"value1\"" = { "#attribute" { "attr1" = "value1" } }
+test Xml.attributes get " attr1='value1'" = { "#attribute" { "attr1" = "value1" } }
+test Xml.attributes get " attr1='va\"lue1'" = { "#attribute" { "attr1" = "va\"lue1" } }
+test Xml.attributes get " attr1=\"va'lue1\"" = { "#attribute" { "attr1" = "va'lue1" } }
+
+(* illegal as per the XML standard *)
+test Xml.attributes get " attr1=\"va\"lue1\"" = *
+test Xml.attributes get " attr1='va'lue1'" = *
+
+(* malformed values *)
+test Xml.attributes get " attr1=\"value1'" = *
+test Xml.attributes get " attr1='value1\"" = *
+
 (* Group: empty *)
 
 (* Variable: empty1 *)

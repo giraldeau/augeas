@@ -27,6 +27,22 @@ let char                = /.|(\r?\n)/
 let sto_dquote          = dels "\"" . store /[^"]*/ . dels "\""
 let sto_squote          = dels "'" . store /[^']*/ . dels "'"
 
+(* lenses to handle quoted attributes, must be placed under tree *)
+let sto_q1 =
+    let quote = dels "'" in
+    let body = store /[^']*[\"][^']*/ in
+    square quote body quote
+
+let sto_q2 =
+    let quote = dels "\"" in
+    let body = store /[^\"]*['][^\"]*/ in
+    square quote body quote
+
+let sto_q3 =
+    let quote = del /['\"]/ "\"" in
+    let body = store /[^'\"]*/ in
+    square quote body quote
+
 let comment             = [ label "#comment" .
                             dels "<!--" .
                             store /([^-]|-[^-])*/ .
@@ -89,8 +105,12 @@ let decl_outer    = sep_osp . del /\[[ \n\t\r]*/ "[\n" .
 
 let doctype       = decl_def /!DOCTYPE/ (decl_outer|id_def)
 
-let attributes    = [ label "#attribute" .
-                      [ sep_spc . key nmtoken . sep_eq . sto_dquote ]+ ]
+let attributes    =
+    let attval1 = [ sep_spc . key nmtoken . sep_eq . sto_q1 ] in
+    let attval2 = [ sep_spc . key nmtoken . sep_eq . sto_q2 ] in
+    let attval3 = [ sep_spc . key nmtoken . sep_eq . sto_q3 ] in
+    let attval = attval1 | attval2 | attval3 in
+    [ label "#attribute" . attval+ ]
 
 let prolog        = [ label "#declaration" .
                       dels "<?xml" .
