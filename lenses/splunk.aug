@@ -38,4 +38,6 @@ module Splunk =
 
   let filter    = incl "/opt/splunk/etc/system/local/*.conf"
                 . incl "/opt/splunk/etc/apps/*/local/*.conf"
+                . incl "/opt/splunkforwarder/etc/system/local/*.conf"
+                . incl "/opt/splunkforwarder/etc/apps/*/local/*.conf"
   let xfm       = transform lns filter
